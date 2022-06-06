@@ -44,6 +44,7 @@
 #include "commands/event_trigger.h"
 #include "commands/matview.h"
 #include "commands/prepare.h"
+#include "commands/tablespace.h"
 #include "commands/view.h"
 #include "commands/tablecmds.h"
 #include "miscadmin.h"
@@ -1165,11 +1166,34 @@ orioledb_utility_command(PlannedStmt *pstmt,
 
 					/* Restore userid and security context */
 					SetUserIdAndSecContext(save_userid, save_sec_context);
+					elog(WARNING, "created materialized view with orioledb access method will not support refresh");
 				}
 				free_parsestate(pstate);
 			}
 			call_next = false;
 		}
+	}
+	else if (IsA(pstmt->utilityStmt, RefreshMatViewStmt))
+	{
+		RefreshMatViewStmt  *stmt = (RefreshMatViewStmt *) pstmt->utilityStmt;
+		Relation	rel;
+		char	   *amname = NULL;
+		bool		orioledb = false;
+
+		rel = table_openrv(stmt->relation, AccessShareLock);
+
+		amname = get_am_name(rel->rd_rel->relam);
+		orioledb = strcmp(amname, "orioledb") == 0;
+
+		if (orioledb)
+		{
+			/* TODO: Implement REFRESH MATERIALIZED VIEW */
+			pfree(amname);
+			table_close(rel, AccessShareLock);
+			elog(ERROR, "materialized views with orioledb access method do not support refresh yet");
+		}
+		pfree(amname);
+		table_close(rel, AccessShareLock);
 	}
 	else if (IsA(pstmt->utilityStmt, IndexStmt))
 	{
