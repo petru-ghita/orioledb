@@ -200,10 +200,8 @@ orioledb_fetch_row_version(Relation relation,
 										 fetch_row_version_callback,
 										 &version);
 
-#if PG_VERSION_NUM >= 150000
-	if (is_merge && deleted && COMMITSEQNO_IS_INPROGRESS(tupleCsn))
+	if (deleted && COMMITSEQNO_IS_INPROGRESS(tupleCsn))
 		return true;
-#endif
 
 	if (O_TUPLE_IS_NULL(tuple))
 		return false;
@@ -590,6 +588,9 @@ orioledb_tuple_update(ModifyTableState *mstate, ResultRelInfo *rinfo,
 		Assert(mres.action != BTreeOperationLock);
 		/* ExecClearTuple(mres.oldTuple); */
 	}
+
+	if (mres.self_modified)
+		return TM_SelfModified;
 
 	o_check_tbl_update_mres(mres, descr, rel, slot);
 
