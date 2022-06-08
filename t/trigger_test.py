@@ -500,7 +500,7 @@ class TriggerTest(BaseTest):
 		node.start()
 
 		self.assertEqual(node.execute("SELECT * FROM o_test_1"), [(1,201), (2,202),
-			(3,203), (4,204), (5,205), (1, None), (2, None), (3, None), (4, None), 
+			(3,203), (4,204), (5,205), (1, None), (2, None), (3, None), (4, None),
 			(5, None), (1,1)])
 
 		node.stop()
@@ -636,7 +636,7 @@ class TriggerTest(BaseTest):
 		node.start()
 
 		self.assertEqual(node.execute("SELECT * FROM o_test_1"), [(1,101), (2,102),
-			(3,103), (4,104), (5,105), (1, None), (2, None), (3, None), (4, None), 
+			(3,103), (4,104), (5,105), (1, None), (2, None), (3, None), (4, None),
 			(5, None)])
 
 		node.stop()
@@ -681,7 +681,7 @@ class TriggerTest(BaseTest):
 		node.start()
 
 		self.assertEqual(node.execute("SELECT * FROM o_test_1"), [(1,101), (2,102),
-			(3,103), (4,104), (5,105), (1, None), (2, None), (3, None), (4, None), 
+			(3,103), (4,104), (5,105), (1, None), (2, None), (3, None), (4, None),
 			(5, None)])
 
 		node.stop()
@@ -749,7 +749,7 @@ class TriggerTest(BaseTest):
 						IF (TG_LEVEL = 'ROW') THEN
 							INSERT INTO o_test_1(val_1)
 								VALUES (OLD.val_1);
-						ELSIF 
+						ELSIF
 						(TG_LEVEL = 'STATEMENT') THEN
 							INSERT INTO o_test_1(val_1)
 								VALUES (NEW.val_1);
@@ -779,7 +779,7 @@ class TriggerTest(BaseTest):
 			(3,203), (4,204), (5,205), (None, None)])
 
 		node.stop()
-		
+
 	def test_18(self):
 		node = self.node
 		node.start()
@@ -879,7 +879,7 @@ class TriggerTest(BaseTest):
 		node.start()
 
 		self.assertEqual(node.execute("SELECT * FROM o_test_1"), [(1,101), (2,102),
-			(3,103), (4,104), (5,105), (1, None), (2, None), (3, None), (4, None), 
+			(3,103), (4,104), (5,105), (1, None), (2, None), (3, None), (4, None),
 			(5, None)])
 
 		node.stop()
@@ -963,7 +963,7 @@ class TriggerTest(BaseTest):
 		node.start()
 		node.safe_psql("""
 				CREATE EXTENSION IF NOT EXISTS orioledb;
-				
+
 				CREATE TABLE o_test_1(
 					val_1 int,
 					val_2 int
@@ -986,7 +986,7 @@ class TriggerTest(BaseTest):
 					BEFORE DELETE ON o_test_1
 					FOR EACH ROW EXECUTE FUNCTION func_1();
 
-				DELETE FROM o_test_1 WHERE val_1 = 1;					
+				DELETE FROM o_test_1 WHERE val_1 = 1;
 		""")
 		node.stop(['-m', 'immediate'])
 
@@ -1002,7 +1002,7 @@ class TriggerTest(BaseTest):
 		node.start()
 		node.safe_psql("""
 				CREATE EXTENSION IF NOT EXISTS orioledb;
-				
+
 				CREATE TABLE o_test_1(
 					val_1 int,
 					val_2 int

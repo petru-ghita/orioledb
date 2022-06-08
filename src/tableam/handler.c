@@ -452,9 +452,15 @@ orioledb_tuple_delete(ModifyTableState *mstate,
 	o_check_tbl_delete_mres(mres, descr, rinfo->ri_RelationDesc);
 
 	if (mres.self_modified)
+	{
 		tmfd->xmax = GetCurrentTransactionId();
+		tmfd->cmax = GetCurrentCommandId(true);
+	}
 	else
+	{
 		tmfd->xmax = InvalidTransactionId;
+		tmfd->cmax = InvalidCommandId;
+	}
 
 	if (mres.success)
 	{
@@ -597,9 +603,15 @@ orioledb_tuple_update(ModifyTableState *mstate, ResultRelInfo *rinfo,
 	Assert(mres.success);
 
 	if (mres.self_modified)
+	{
 		tmfd->xmax = GetCurrentTransactionId();
+		tmfd->cmax = GetCurrentCommandId(true);
+	}
 	else
+	{
 		tmfd->xmax = InvalidTransactionId;
+		tmfd->cmax = InvalidCommandId;
+	}
 
 	if (mres.oldTuple)
 		return mres.self_modified ? TM_SelfModified : TM_Ok;
