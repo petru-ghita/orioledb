@@ -1203,7 +1203,8 @@ orioledb_utility_command(PlannedStmt *pstmt,
 
 		rel = table_openrv(stmt->relation, AccessExclusiveLock);
 
-		if ((rel->rd_rel->relkind == RELKIND_RELATION) && is_orioledb_rel(rel))
+		if ((rel->rd_rel->relkind == RELKIND_RELATION ||
+			 rel->rd_rel->relkind == RELKIND_MATVIEW) && is_orioledb_rel(rel))
 		{
 			o_index_create(rel, stmt, queryString, pstmt->utilityStmt);
 
@@ -1221,7 +1222,8 @@ orioledb_utility_command(PlannedStmt *pstmt,
 			Relation	tbl = relation_open(idx->rd_index->indrelid,
 											AccessShareLock);
 
-			if (tbl->rd_rel->relkind == RELKIND_RELATION &&
+			if ((tbl->rd_rel->relkind == RELKIND_RELATION ||
+				 tbl->rd_rel->relkind == RELKIND_MATVIEW) &&
 				is_orioledb_rel(tbl))
 			{
 				OTable	   *o_table;
@@ -1273,7 +1275,8 @@ orioledb_utility_command(PlannedStmt *pstmt,
 		{
 			Relation	tbl = relation_openrv(stmt->relation, AccessExclusiveLock);
 
-			if (tbl->rd_rel->relkind == RELKIND_RELATION &&
+			if ((tbl->rd_rel->relkind == RELKIND_RELATION ||
+				 tbl->rd_rel->relkind == RELKIND_MATVIEW) &&
 				is_orioledb_rel(tbl))
 			{
 				OTable	   *o_table;
@@ -1403,7 +1406,9 @@ o_find_composite_type_dependencies(Oid typeOid, Relation origRelation)
 
 		rel = relation_open(pg_depend->objid, AccessShareLock);
 
-		if (rel->rd_rel->relkind == RELKIND_RELATION && is_orioledb_rel(rel))
+		if ((rel->rd_rel->relkind == RELKIND_RELATION ||
+			 rel->rd_rel->relkind == RELKIND_MATVIEW) &&
+			is_orioledb_rel(rel))
 		{
 			OTable	   *table;
 			ORelOids	table_oids = {MyDatabaseId, rel->rd_rel->oid,
@@ -1486,7 +1491,8 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 		{
 			bool		is_open = true;
 
-			if (rel->rd_rel->relkind == RELKIND_RELATION &&
+			if ((rel->rd_rel->relkind == RELKIND_RELATION ||
+				 rel->rd_rel->relkind == RELKIND_MATVIEW) &&
 				(subId == 0) && is_orioledb_rel(rel))
 			{
 				CommitSeqNo csn;
@@ -1517,7 +1523,8 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 				Relation	tbl = relation_open(rel->rd_index->indrelid,
 												AccessShareLock);
 
-				if (tbl->rd_rel->relkind == RELKIND_RELATION &&
+				if ((tbl->rd_rel->relkind == RELKIND_RELATION ||
+					 tbl->rd_rel->relkind == RELKIND_MATVIEW) &&
 					is_orioledb_rel(tbl))
 				{
 					OIndexNumber ix_num;
@@ -1698,10 +1705,13 @@ o_define_relation(CreateStmt *cstmt, char relkind, const char *queryString)
 		cstmt->options = extract_compress_rel_option(cstmt->options,
 														"toast_compress",
 														&toast_compress);
+		validate_compress(compress, "Default");
+		validate_compress(primary_compress, "Primary index");
+		validate_compress(toast_compress, "TOAST");
+
+		if (cstmt->inhRelations != NIL)
+			elog(ERROR, "INHERITS is not supported for orioledb tables.");
 	}
-	validate_compress(compress, "Default");
-	validate_compress(primary_compress, "Primary index");
-	validate_compress(toast_compress, "TOAST");
 
 	/* Create the table itself */
 	address = DefineRelation(cstmt, relkind, InvalidOid, NULL,

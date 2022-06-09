@@ -25,11 +25,8 @@ CREATE TABLE o_test_create_as_with_data (order_id, item_id, quantity, price)
 	USING orioledb AS (VALUES (100, 1, 4, 100.00), (100, 3, 1, 200.00))
 	WITH DATA;
 SELECT * FROM o_test_create_as_with_data;
-SELECT reloid, relname FROM orioledb_table_oids()
-	JOIN pg_class ON reloid = oid WHERE relname = 'o_test_create_as_with_data';
 DROP TABLE o_test_create_as_with_data;
-SELECT reloid, relname FROM orioledb_table_oids()
-	JOIN pg_class ON reloid = oid WHERE relname = 'o_test_create_as_with_data';
+SELECT * FROM o_test_create_as_with_data;
 
 CREATE TABLE o_test_create_as_no_data (order_id, item_id, quantity, price)
 	USING orioledb AS (VALUES (100, 1, 4, 100.00), (100, 3, 1, 200.00))
