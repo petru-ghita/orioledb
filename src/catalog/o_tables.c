@@ -23,6 +23,7 @@
 #include "recovery/wal.h"
 #include "transam/oxid.h"
 #include "tuple/toast.h"
+#include "utils/planner.h"
 
 #include "access/heapam.h"
 #include "access/transam.h"
@@ -96,6 +97,8 @@ static void o_table_oids_array_callback(ORelOids oids, void *arg);
 static inline void o_tables_rel_fill_locktag(LOCKTAG *tag, ORelOids *oids, int lockmode, bool checkpoint);
 static Pointer serialize_o_table(OTable *o_table, int *size);
 static OTable *deserialize_o_table(Pointer data, Size length);
+
+static bool o_collect_functions(Node *node, void *context);
 
 List	   *o_func_list = NIL;
 
@@ -492,55 +495,39 @@ add_func(List **func_list, Oid funcid, Oid inputcollid)
 	func_expr->retset = procedureStruct->proretset;
 	func_expr->strict = procedureStruct->proisstrict;
 	ReleaseSysCache(procedureTuple);
-	fmgr_symbol(func_expr->funcid, &func_expr->prosrc, &func_expr->probin);
+	fmgr_symbol(func_expr->funcid, &func_expr->probin, &func_expr->prosrc);
 
 	*func_list = lappend(*func_list, func_expr);
+}
+
+static void
+o_collect_function_walker(Oid functionId, Oid inputcollid, List *args,
+						  void *context)
+{
+	HeapTuple		procedureTuple;
+	Form_pg_proc	procedureStruct;
+	List		  **func_list = (List **) context;
+
+	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
+	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+	add_func(func_list, functionId, inputcollid);
+
+	if (procedureStruct->prolang == SQLlanguageId &&
+		procedureStruct->prokind == PROKIND_FUNCTION)
+	{
+		o_process_sql_function(procedureTuple, o_collect_functions,
+								context, functionId, inputcollid, args);
+	}
+	ReleaseSysCache(procedureTuple);
 }
 
 static bool
 o_collect_functions(Node *node, void *context)
 {
-	Oid			functionId = InvalidOid;
-	Oid			inputcollid;
-	List	  **func_list = (List **) context;
-
 	if (node == NULL)
 		return false;
 
-	switch (node->type)
-	{
-		case T_OpExpr:
-		case T_DistinctExpr:	/* struct-equivalent to OpExpr */
-		case T_NullIfExpr:		/* struct-equivalent to OpExpr */
-			{
-				OpExpr	   *expr = (OpExpr *) node;
-
-				functionId = expr->opfuncid;
-				inputcollid = expr->inputcollid;
-				break;
-			}
-		case T_FuncExpr:
-			{
-				FuncExpr   *expr = (FuncExpr *) node;
-
-				functionId = expr->funcid;
-				inputcollid = expr->inputcollid;
-				break;
-			}
-		case T_ScalarArrayOpExpr:
-			{
-				ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) node;
-
-				functionId = expr->opfuncid;
-				inputcollid = expr->inputcollid;
-				break;
-			}
-		default:
-			break;
-	}
-
-	if (OidIsValid(functionId))
-		add_func(func_list, functionId, inputcollid);
+	o_process_functions_in_node(node, o_collect_function_walker, context);
 
 	return expression_tree_walker(node, o_collect_functions, context);
 }

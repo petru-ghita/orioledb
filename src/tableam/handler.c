@@ -596,16 +596,10 @@ orioledb_tuple_update(ModifyTableState *mstate, ResultRelInfo *rinfo,
 	}
 
 	if (mres.self_modified)
-		return TM_SelfModified;
-
-	o_check_tbl_update_mres(mres, descr, rel, slot);
-
-	Assert(mres.success);
-
-	if (mres.self_modified)
 	{
 		tmfd->xmax = GetCurrentTransactionId();
 		tmfd->cmax = GetCurrentCommandId(true);
+		return TM_SelfModified;
 	}
 	else
 	{
@@ -613,9 +607,11 @@ orioledb_tuple_update(ModifyTableState *mstate, ResultRelInfo *rinfo,
 		tmfd->cmax = InvalidCommandId;
 	}
 
-	if (mres.oldTuple)
-		return mres.self_modified ? TM_SelfModified : TM_Ok;
-	return TM_Deleted;
+	o_check_tbl_update_mres(mres, descr, rel, slot);
+
+	Assert(mres.success);
+
+	return mres.oldTuple ? TM_Ok : TM_Deleted;
 }
 
 static TM_Result

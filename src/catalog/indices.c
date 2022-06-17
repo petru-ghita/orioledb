@@ -29,6 +29,7 @@
 #include "tuple/slot.h"
 #include "tuple/sort.h"
 #include "tuple/toast.h"
+#include "utils/planner.h"
 
 #include "access/genam.h"
 #include "access/relation.h"
@@ -44,6 +45,7 @@
 #include "commands/tablecmds.h"
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
+#include "parser/parse_target.h"
 #include "parser/parse_utilcmd.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
@@ -53,6 +55,8 @@
 #include "utils/tuplesort.h"
 
 bool		in_indexes_rebuild = false;
+
+static bool o_validate_function(Node *node, void *context);
 
 bool
 is_in_indexes_rebuild(void)
@@ -133,81 +137,82 @@ recreate_o_table(OTable *old_o_table, OTable *o_table)
 	pfree(newTreeOids);
 }
 
+static void
+o_validate_function_walker(Oid functionId, Oid inputcollid, List *args,
+						   void *context)
+{
+	HeapTuple	procedureTuple;
+	Form_pg_proc procedureStruct;
+
+	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
+	if (!HeapTupleIsValid(procedureTuple))
+		elog(ERROR, "cache lookup failed for function %u", functionId);
+	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+	if (procedureStruct->prolang > SQLlanguageId)
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					errmsg("function \"%s\" cannot be used here",
+						procedureStruct->proname.data),
+					errhint("only C and SQL functions are supported in "
+							"predicates and expressions of orioledb "
+							"indices")));
+	if (procedureStruct->provolatile == PROVOLATILE_VOLATILE)
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					errmsg("function \"%s\" cannot be used here",
+						procedureStruct->proname.data),
+					errhint("only immutable and stable functions are "
+							"supported in predicates and expressions of "
+							"orioledb indices")));
+
+	if (procedureStruct->prolang == SQLlanguageId &&
+		procedureStruct->prokind == PROKIND_FUNCTION)
+	{
+		o_process_sql_function(procedureTuple, o_validate_function,
+							   context, functionId, inputcollid, args);
+	}
+	ReleaseSysCache(procedureTuple);
+}
+
 static bool
 o_validate_function(Node *node, void *context)
 {
-	Oid			functionId = InvalidOid;
-
 	if (node == NULL)
 		return false;
 
-	switch (node->type)
+	o_process_functions_in_node(node, o_validate_function_walker, context);
+
+	if (IsA(node, SQLValueFunction) || IsA(node, NextValueExpr))
 	{
-		case T_OpExpr:
-		case T_DistinctExpr:	/* struct-equivalent to OpExpr */
-		case T_NullIfExpr:		/* struct-equivalent to OpExpr */
-			{
-				OpExpr	   *expr = (OpExpr *) node;
-
-				functionId = expr->opfuncid;
-				break;
-			}
-		case T_FuncExpr:
-			{
-				FuncExpr   *expr = (FuncExpr *) node;
-
-				functionId = expr->funcid;
-				break;
-			}
-		case T_ScalarArrayOpExpr:
-			{
-				ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) node;
-
-				functionId = expr->opfuncid;
-				break;
-			}
-		default:
-			break;
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					errmsg("function \"%s\" cannot be used here, "
+						"because it is volatile",
+						FigureColname(node)),
+					errhint("only immutable and stable functions are "
+							"supported in predicates and expressions of "
+							"orioledb indices")));
 	}
 
-	if (OidIsValid(functionId))
-	{
-		HeapTuple	procedureTuple;
-		Form_pg_proc procedureStruct;
+	/*
+	 * It should be safe to treat MinMaxExpr as immutable, because it will
+	 * depend on a non-cross-type btree comparison function, and those should
+	 * always be immutable.  Treating XmlExpr as immutable is more dubious,
+	 * and treating CoerceToDomain as immutable is outright dangerous.  But we
+	 * have done so historically, and changing this would probably cause more
+	 * problems than it would fix.  In practice, if you have a non-immutable
+	 * domain constraint you are in for pain anyhow.
+	 */
 
-		procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
-		if (!HeapTupleIsValid(procedureTuple))
-			elog(ERROR, "cache lookup failed for function %u", functionId);
-		procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
-		if (procedureStruct->prolang > SQLlanguageId)
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("Only C and SQL functions are supported in "
-							"orioledb indices.")));
-		if (procedureStruct->provolatile == PROVOLATILE_VOLATILE)
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("Only immutable and stable functions are supported "
-							"in orioledb indices.")));
-		ReleaseSysCache(procedureTuple);
+	/* Recurse to check arguments */
+	if (IsA(node, Query))
+	{
+		/* Recurse into subselects */
+		return query_tree_walker((Query *) node, o_validate_function,
+								 context, 0);
 	}
 
 	return expression_tree_walker(node, o_validate_function, (void *) context);
-}
-
-static Node *
-wrap_top_funcexpr(Node *node)
-{
-	static NamedArgExpr named_arg = {.xpr = {.type = T_NamedArgExpr}};
-
-	switch (node->type)
-	{
-		case T_FuncExpr:
-			named_arg.arg = (Expr *) node;
-			return (Node *) &named_arg;
-		default:
-			return node;
-	}
 }
 
 static void
@@ -218,7 +223,7 @@ o_validate_index_elements(OTable *o_table, OIndexNumber ix_num,
 	ListCell   *field_cell;
 
 	if (whereClause)
-		expression_tree_walker(wrap_top_funcexpr(whereClause),
+		expression_tree_walker(o_wrap_top_funcexpr(whereClause),
 							   o_validate_function, NULL);
 
 	foreach(field_cell, index_elems)
@@ -262,7 +267,7 @@ o_validate_index_elements(OTable *o_table, OIndexNumber ix_num,
 		}
 		else
 		{
-			expression_tree_walker(wrap_top_funcexpr(ielem->expr),
+			expression_tree_walker(o_wrap_top_funcexpr(ielem->expr),
 								   o_validate_function, NULL);
 		}
 	}
@@ -290,6 +295,12 @@ o_index_create(Relation rel,
 	OTableDescr *old_descr = NULL;
 	List	   *index_expr_fields = NIL;
 	List	   *index_predicate = NIL;
+
+	if (strcmp(stmt->accessMethod, "btree") != 0)
+		ereport(ERROR, errmsg("'%s' access method is not supported",
+							  stmt->accessMethod),
+				errhint("Only 'btree' access method supported now "
+						"for indices on orioledb tables."));
 
 	/*
 	 * TODO: ? if (strcmp(stmt->accessMethod, "orioledb") != 0) elog(ERROR,

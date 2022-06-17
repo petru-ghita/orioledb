@@ -61,6 +61,7 @@ OBJS = src/btree/btree.o \
 	   src/utils/compress.o \
 	   src/utils/o_buffers.o \
 	   src/utils/page_pool.o \
+	   src/utils/planner.o \
 	   src/utils/seq_buf.o \
 	   src/utils/stopevent.o \
 	   src/utils/ucm.o \
@@ -79,6 +80,7 @@ REGRESSCHECKS = btree_sys_check \
 				indices_build \
 				ioc \
 				joins \
+				partial \
 				primary_key \
 				row_level_locks \
 				subquery \
