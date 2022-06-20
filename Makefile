@@ -102,7 +102,8 @@ ISOLATIONCHECKS = btree_print_backend_id \
 				  rightlink \
 				  rll \
 				  rll_2 \
-				  uniq
+				  uniq \
+				  table_lock_test
 TESTGRESCHECKS_PART_1 = t/checkpointer_test.py \
 						t/eviction_bgwriter_test.py \
 						t/eviction_compression_test.py \
