@@ -85,7 +85,8 @@ REGRESSCHECKS = btree_sys_check \
 				subtransactions \
 				tableam \
 				toast \
-				types
+				types \
+				op_class
 ISOLATIONCHECKS = btree_print_backend_id \
 				  btree_iterate \
 				  fkeys \
