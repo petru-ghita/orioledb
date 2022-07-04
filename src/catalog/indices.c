@@ -20,7 +20,7 @@
 #include "checkpoint/checkpoint.h"
 #include "catalog/indices.h"
 #include "catalog/o_opclass.h"
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "recovery/recovery.h"
 #include "recovery/wal.h"
 #include "tableam/descr.h"
@@ -37,7 +37,6 @@
 #include "catalog/heap.h"
 #include "catalog/index.h"
 #include "catalog/namespace.h"
-#include "catalog/pg_language.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
 #include "commands/defrem.h"
@@ -45,7 +44,6 @@
 #include "commands/tablecmds.h"
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
-#include "parser/parse_target.h"
 #include "parser/parse_utilcmd.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
@@ -55,8 +53,6 @@
 #include "utils/tuplesort.h"
 
 bool		in_indexes_rebuild = false;
-
-static bool o_validate_function(Node *node, void *context);
 
 bool
 is_in_indexes_rebuild(void)
@@ -138,84 +134,6 @@ recreate_o_table(OTable *old_o_table, OTable *o_table)
 }
 
 static void
-o_validate_function_walker(Oid functionId, Oid inputcollid, List *args,
-						   void *context)
-{
-	HeapTuple	procedureTuple;
-	Form_pg_proc procedureStruct;
-
-	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
-	if (!HeapTupleIsValid(procedureTuple))
-		elog(ERROR, "cache lookup failed for function %u", functionId);
-	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
-	if (procedureStruct->prolang > SQLlanguageId)
-		ereport(ERROR,
-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					errmsg("function \"%s\" cannot be used here",
-						procedureStruct->proname.data),
-					errhint("only C and SQL functions are supported in "
-							"predicates and expressions of orioledb "
-							"indices")));
-	if (procedureStruct->provolatile == PROVOLATILE_VOLATILE)
-		ereport(ERROR,
-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					errmsg("function \"%s\" cannot be used here",
-						procedureStruct->proname.data),
-					errhint("only immutable and stable functions are "
-							"supported in predicates and expressions of "
-							"orioledb indices")));
-
-	if (procedureStruct->prolang == SQLlanguageId &&
-		procedureStruct->prokind == PROKIND_FUNCTION)
-	{
-		o_process_sql_function(procedureTuple, o_validate_function,
-							   context, functionId, inputcollid, args);
-	}
-	ReleaseSysCache(procedureTuple);
-}
-
-static bool
-o_validate_function(Node *node, void *context)
-{
-	if (node == NULL)
-		return false;
-
-	o_process_functions_in_node(node, o_validate_function_walker, context);
-
-	if (IsA(node, SQLValueFunction) || IsA(node, NextValueExpr))
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					errmsg("function \"%s\" cannot be used here, "
-						"because it is volatile",
-						FigureColname(node)),
-					errhint("only immutable and stable functions are "
-							"supported in predicates and expressions of "
-							"orioledb indices")));
-	}
-
-	/*
-	 * It should be safe to treat MinMaxExpr as immutable, because it will
-	 * depend on a non-cross-type btree comparison function, and those should
-	 * always be immutable.  Treating XmlExpr as immutable is more dubious,
-	 * and treating CoerceToDomain as immutable is outright dangerous.  But we
-	 * have done so historically, and changing this would probably cause more
-	 * problems than it would fix.  In practice, if you have a non-immutable
-	 * domain constraint you are in for pain anyhow.
-	 */
-
-	/* Recurse to check arguments */
-	if (IsA(node, Query))
-	{
-		/* Recurse into subselects */
-		return query_tree_walker((Query *) node, o_validate_function,
-								 context, 0);
-	}
-
-	return expression_tree_walker(node, o_validate_function, (void *) context);
-}
-
-static void
 o_validate_index_elements(OTable *o_table, OIndexNumber ix_num,
 						  OIndexType type, List *index_elems,
 						  Node *whereClause)
@@ -223,8 +141,8 @@ o_validate_index_elements(OTable *o_table, OIndexNumber ix_num,
 	ListCell   *field_cell;
 
 	if (whereClause)
-		expression_tree_walker(o_wrap_top_funcexpr(whereClause),
-							   o_validate_function, NULL);
+		o_validate_funcexpr(whereClause, " are supported in "
+										 "orioledb index predicate");
 
 	foreach(field_cell, index_elems)
 	{
@@ -267,8 +185,8 @@ o_validate_index_elements(OTable *o_table, OIndexNumber ix_num,
 		}
 		else
 		{
-			expression_tree_walker(o_wrap_top_funcexpr(ielem->expr),
-								   o_validate_function, NULL);
+			o_validate_funcexpr(ielem->expr, " are supported in "
+											 "orioledb index expressions");
 		}
 	}
 }

@@ -27,11 +27,13 @@ OBJS = src/btree/btree.o \
 	   src/catalog/ddl.o \
 	   src/catalog/free_extents.o \
 	   src/catalog/indices.o \
+	   src/catalog/o_class_cache.o \
 	   src/catalog/o_enum_cache.o \
 	   src/catalog/o_indices.o \
 	   src/catalog/o_opclass.o \
+	   src/catalog/o_proc_cache.o \
 	   src/catalog/o_range_cache.o \
-	   src/catalog/o_record_cache.o \
+	   src/catalog/o_sys_cache.o \
 	   src/catalog/o_tables.o \
 	   src/catalog/o_type_cache.o \
 	   src/catalog/o_type_element_cache.o \
@@ -80,6 +82,7 @@ REGRESSCHECKS = btree_sys_check \
 				indices_build \
 				ioc \
 				joins \
+				opclass  \
 				partial \
 				primary_key \
 				row_level_locks \
@@ -87,8 +90,7 @@ REGRESSCHECKS = btree_sys_check \
 				subtransactions \
 				tableam \
 				toast \
-				types \
-				op_class
+				types
 ISOLATIONCHECKS = btree_print_backend_id \
 				  btree_iterate \
 				  fkeys \

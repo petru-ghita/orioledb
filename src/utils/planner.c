@@ -14,13 +14,16 @@
 
 #include "orioledb.h"
 
+#include "catalog/o_sys_cache.h"
 #include "utils/planner.h"
 
+#include "catalog/pg_language.h"
 #include "catalog/pg_proc.h"
 #include "executor/functions.h"
 #include "funcapi.h"
 #include "nodes/nodeFuncs.h"
 #include "parser/analyze.h"
+#include "parser/parse_target.h"
 #include "tcop/tcopprot.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
@@ -30,7 +33,9 @@ typedef struct
 {
 	char	   *proname;
 	char	   *prosrc;
-} inline_error_callback_arg;
+} validate_error_callback_arg;
+
+static bool validate_function(Node *node, void *context);
 
 /*
  * error context callback to let us supply a call-stack traceback
@@ -38,8 +43,10 @@ typedef struct
 static void
 sql_validate_error_callback(void *arg)
 {
-	inline_error_callback_arg *callback_arg = (inline_error_callback_arg *) arg;
-	int			syntaxerrposition;
+	validate_error_callback_arg	   *callback_arg;
+	int								syntaxerrposition;
+
+	callback_arg = (validate_error_callback_arg *) arg;
 
 	/* If it's a syntax error, convert to internal syntax error report */
 	syntaxerrposition = geterrposition();
@@ -55,7 +62,7 @@ sql_validate_error_callback(void *arg)
 }
 
 void
-o_process_sql_function(HeapTuple	procedureTuple, bool (*walker) (),
+o_process_sql_function(HeapTuple procedureTuple, bool (*walker) (),
 					   void *context, Oid functionId, Oid inputcollid,
 					   List *args)
 {
@@ -63,7 +70,7 @@ o_process_sql_function(HeapTuple	procedureTuple, bool (*walker) (),
 	MemoryContext				mycxt,
 								oldcxt;
 	ErrorContextCallback		sqlerrcontext;
-	inline_error_callback_arg	callback_arg;
+	validate_error_callback_arg	callback_arg;
 	Datum						proc_body;
 	FuncExpr				   *fexpr;
 	bool						isNull;
@@ -71,6 +78,8 @@ o_process_sql_function(HeapTuple	procedureTuple, bool (*walker) (),
 	bool						has_body = true;
 
 	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+	elog(WARNING, "o_process_sql_function: %s",
+		 procedureStruct->proname.data);
 
 	/*
 		* Make a temporary memory context, so that we don't leak all the
@@ -164,6 +173,8 @@ o_process_sql_function(HeapTuple	procedureTuple, bool (*walker) (),
 			* more than one command in the function body.
 			*/
 		raw_parsetree_list = pg_parse_query(callback_arg.prosrc);
+		elog(WARNING, "raw_parsetree_list: %s", nodeToString(raw_parsetree_list));
+		elog(WARNING, "raw_parsetree_list list_length: %d", list_length(raw_parsetree_list));
 		has_body = list_length(raw_parsetree_list) == 1;
 		if (has_body)
 		{
@@ -179,6 +190,30 @@ o_process_sql_function(HeapTuple	procedureTuple, bool (*walker) (),
 	}
 #endif
 
+	elog(WARNING, "o_process_sql_function: %s: BIG IF: %c %c %c %c %c "
+				  "%c %c %c %c %c %c %c %c %c %c %c %c %c %c %c %c",
+		 procedureStruct->proname.data,
+		 has_body ? 'Y' : 'N',
+		 IsA(querytree, Query) ? 'Y' : 'N',
+		 querytree->commandType == CMD_SELECT ? 'Y' : 'N',
+		 !querytree->hasAggs ? 'Y' : 'N',
+		 !querytree->hasWindowFuncs ? 'Y' : 'N',
+		 !querytree->hasTargetSRFs ? 'Y' : 'N',
+		 !querytree->hasSubLinks ? 'Y' : 'N',
+		 !querytree->cteList ? 'Y' : 'N',
+		 !querytree->rtable ? 'Y' : 'N',
+		 !querytree->jointree->fromlist ? 'Y' : 'N',
+		 !querytree->jointree->quals ? 'Y' : 'N',
+		 !querytree->groupClause ? 'Y' : 'N',
+		 !querytree->groupingSets ? 'Y' : 'N',
+		 !querytree->havingQual ? 'Y' : 'N',
+		 !querytree->windowClause ? 'Y' : 'N',
+		 !querytree->distinctClause ? 'Y' : 'N',
+		 !querytree->sortClause ? 'Y' : 'N',
+		 !querytree->limitOffset ? 'Y' : 'N',
+		 !querytree->limitCount ? 'Y' : 'N',
+		 !querytree->setOperations ? 'Y' : 'N',
+		 list_length(querytree->targetList) == 1 ? 'Y' : 'N');
 	/*
 		* The single command must be a simple "SELECT expression".
 		*
@@ -211,6 +246,9 @@ o_process_sql_function(HeapTuple	procedureTuple, bool (*walker) (),
 	{
 		TupleDesc	rettupdesc;
 		List	   *querytree_list;
+
+		elog(WARNING, "o_process_sql_function: %s: INSIDE BIG IF",
+			procedureStruct->proname.data);
 
 		/* If the function result is composite, resolve it */
 		(void) get_expr_result_type((Node *)fexpr,
@@ -430,4 +468,164 @@ o_process_functions_in_node(Node *node,
 		default:
 			break;
 	}
+}
+
+static void
+validate_function_walker(Oid functionId, Oid inputcollid, List *args,
+						 void *context)
+{
+	HeapTuple		procedureTuple;
+	Form_pg_proc	procedureStruct;
+	char		   *hint_msg = (char *) context;
+
+	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
+	if (!HeapTupleIsValid(procedureTuple))
+		elog(ERROR, "cache lookup failed for function %u", functionId);
+	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+	elog(WARNING, "validate_function_walker: %s",
+		 procedureStruct->proname.data);
+
+	if (procedureStruct->prolang > SQLlanguageId)
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					errmsg("function \"%s\" cannot be used here",
+						procedureStruct->proname.data),
+					errhint("only C and SQL functions%s",
+							hint_msg)));
+	if (procedureStruct->provolatile == PROVOLATILE_VOLATILE)
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					errmsg("function \"%s\" cannot be used here",
+						procedureStruct->proname.data),
+					errhint("only immutable and stable functions%s",
+							hint_msg)));
+
+	if (procedureStruct->prolang == SQLlanguageId &&
+		procedureStruct->prokind == PROKIND_FUNCTION)
+	{
+		o_process_sql_function(procedureTuple, validate_function,
+							   context, functionId, inputcollid, args);
+	}
+	ReleaseSysCache(procedureTuple);
+}
+
+static bool
+validate_function(Node *node, void *context)
+{
+	if (node == NULL)
+		return false;
+
+	o_process_functions_in_node(node, validate_function_walker, context);
+
+	/* Recurse to check arguments */
+	if (IsA(node, Query))
+	{
+		/* Recurse into subselects */
+		return query_tree_walker((Query *) node, validate_function,
+								 context, 0);
+	}
+
+	return expression_tree_walker(node, validate_function, (void *) context);
+}
+
+void
+o_validate_funcexpr(Node *node, char *hint_msg)
+{
+	expression_tree_walker(o_wrap_top_funcexpr(node),
+						   validate_function, hint_msg);
+}
+
+void
+o_validate_function_by_oid(Oid procoid, char *hint_msg)
+{
+	FuncExpr *fexpr;
+	HeapTuple	procedureTuple;
+	Form_pg_proc procedureStruct;
+
+	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(procoid));
+	if (!HeapTupleIsValid(procedureTuple))
+		elog(ERROR, "cache lookup failed for function %u", procoid);
+	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+
+	elog(WARNING, "o_validate_function_by_oid: %s",
+		 procedureStruct->proname.data);
+
+	fexpr = makeNode(FuncExpr);
+	fexpr->funcid = procoid;
+	fexpr->funcresulttype = procedureStruct->prorettype;
+	fexpr->funcretset = procedureStruct->proretset;
+	fexpr->funcvariadic = procedureStruct->provariadic;
+	fexpr->funcformat = COERCE_EXPLICIT_CALL; /* doesn't matter */
+	fexpr->funccollid = InvalidOid;		  /* doesn't matter */
+	fexpr->inputcollid = InvalidOid;
+	fexpr->args = NIL;
+	fexpr->location = -1;
+
+	o_validate_funcexpr((Node *) fexpr, hint_msg);
+
+	ReleaseSysCache(procedureTuple);
+}
+
+static void
+o_collect_function_walker(Oid functionId, Oid inputcollid, List *args,
+						  void *context)
+{
+	XLogRecPtr		cur_lsn;
+	Oid				datoid;
+	HeapTuple		procedureTuple;
+	Form_pg_proc	procedureStruct;
+
+	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
+	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+	o_sys_cache_set_datoid_lsn(&cur_lsn, &datoid);
+	o_proc_cache_add_if_needed(datoid, functionId, cur_lsn,
+							   (Pointer) &inputcollid);
+
+	if (procedureStruct->prolang == SQLlanguageId &&
+		procedureStruct->prokind == PROKIND_FUNCTION)
+	{
+		o_process_sql_function(procedureTuple, o_collect_functions,
+							   context, functionId, inputcollid, args);
+	}
+	ReleaseSysCache(procedureTuple);
+}
+
+bool
+o_collect_functions(Node *node, void *context)
+{
+	if (node == NULL)
+		return false;
+
+	o_process_functions_in_node(node, o_collect_function_walker, context);
+
+	return expression_tree_walker(node, o_collect_functions, context);
+}
+
+void
+o_collect_function_by_oid(Oid procoid, Oid inputcollid)
+{
+	FuncExpr *fexpr;
+	HeapTuple	procedureTuple;
+	Form_pg_proc procedureStruct;
+
+	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(procoid));
+	if (!HeapTupleIsValid(procedureTuple))
+		elog(ERROR, "cache lookup failed for function %u", procoid);
+	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+
+	fexpr = makeNode(FuncExpr);
+	fexpr->funcid = procoid;
+	fexpr->funcresulttype = procedureStruct->prorettype;
+	fexpr->funcretset = procedureStruct->proretset;
+	fexpr->funcvariadic = procedureStruct->provariadic;
+	fexpr->funcformat = COERCE_EXPLICIT_CALL; /* doesn't matter */
+	fexpr->funccollid = InvalidOid;		  /* doesn't matter */
+	fexpr->inputcollid = inputcollid;
+	fexpr->args = NIL;
+	fexpr->location = -1;
+
+	expression_tree_walker(o_wrap_top_funcexpr((Node *) fexpr),
+						   o_collect_functions, NULL);
+
+	ReleaseSysCache(procedureTuple);
 }

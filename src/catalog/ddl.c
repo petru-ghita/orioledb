@@ -19,7 +19,7 @@
 #include "catalog/o_indices.h"
 #include "catalog/o_opclass.h"
 #include "catalog/o_tables.h"
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "tableam/toast.h"
 #include "transam/oxid.h"
 #include "utils/compress.h"
@@ -1592,9 +1592,11 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 			else if (rel->rd_rel->relkind == RELKIND_COMPOSITE_TYPE &&
 					 (subId != 0))
 			{
+				OClassArg	arg = {.column_drop=true, .dropped=subId};
 				o_find_composite_type_dependencies(rel->rd_rel->reltype, rel);
 				CommandCounterIncrement();
-				o_record_cache_update_if_needed(MyDatabaseId, objectId, NULL);
+				o_class_cache_update_if_needed(MyDatabaseId, rel->rd_rel->oid,
+											   (Pointer) &arg);
 			}
 			if (is_open)
 				relation_close(rel, AccessShareLock);
@@ -1634,7 +1636,7 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 			case TYPTYPE_COMPOSITE:
 				if (typeform->typtypmod == -1)
 				{
-					o_record_cache_delete(MyDatabaseId, typeform->oid);
+					o_class_cache_delete(MyDatabaseId, typeform->typrelid);
 				}
 				break;
 			case TYPTYPE_RANGE:
@@ -1660,7 +1662,8 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 			{
 				o_find_composite_type_dependencies(rel->rd_rel->reltype, rel);
 				CommandCounterIncrement();
-				o_record_cache_update_if_needed(MyDatabaseId, objectId, NULL);
+				o_class_cache_update_if_needed(MyDatabaseId, rel->rd_rel->oid,
+											   NULL);
 			}
 			relation_close(rel, AccessShareLock);
 		}
@@ -1675,7 +1678,8 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 			{
 				o_find_composite_type_dependencies(rel->rd_rel->reltype, rel);
 				CommandCounterIncrement();
-				o_record_cache_update_if_needed(MyDatabaseId, objectId, NULL);
+				o_class_cache_update_if_needed(MyDatabaseId, rel->rd_rel->oid,
+											   NULL);
 			}
 			relation_close(rel, AccessShareLock);
 		}
@@ -1701,7 +1705,8 @@ orioledb_object_access_hook(ObjectAccessType access, Oid classId, Oid objectId,
 			o_find_composite_type_dependencies(objectId, rel);
 			relation_close(rel, AccessShareLock);
 			CommandCounterIncrement();
-			o_record_cache_update_if_needed(MyDatabaseId, objectId, NULL);
+			o_class_cache_update_if_needed(MyDatabaseId, rel->rd_rel->oid,
+										   NULL);
 			break;
 
 		default:

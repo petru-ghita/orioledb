@@ -24,5 +24,10 @@ extern void o_process_functions_in_node(Node *node,
 															List *args,
 															void *context),
 										void *context);
+extern void o_validate_funcexpr(Node *node, char *hint_msg);
+extern void o_validate_function_by_oid(Oid procoid, char *hint_msg);
+
+extern bool o_collect_functions(Node *node, void *context);
+extern void o_collect_function_by_oid(Oid procoid, Oid inputcollid);
 
 #endif

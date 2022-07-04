@@ -280,25 +280,11 @@ add_index_fields(OIndex *index, OTable *table, OTableIndex *tableIndex, int *j,
 		{
 			MemoryContext mcxt = OGetIndexContext(index);
 			MemoryContext old_mcxt = MemoryContextSwitchTo(mcxt);
-			ListCell   *lc;
 
 			index->predicate = list_copy_deep(tableIndex->predicate);
 			if (index->predicate)
 				index->predicate_str = pstrdup(tableIndex->predicate_str);
 			index->expressions = list_copy_deep(tableIndex->expressions);
-			index->func_list = NIL;
-			foreach(lc, tableIndex->func_list)
-			{
-				OFuncExpr  *src_func = lfirst(lc),
-						   *dst_func = palloc0(sizeof(OFuncExpr));
-
-				memcpy(dst_func, src_func, offsetof(OFuncExpr, prosrc));
-				if (src_func->prosrc)
-					dst_func->prosrc = pstrdup(src_func->prosrc);
-				if (src_func->probin)
-					dst_func->probin = pstrdup(src_func->probin);
-				index->func_list = lappend(index->func_list, dst_func);
-			}
 			MemoryContextSwitchTo(old_mcxt);
 		}
 		for (i = 0; i < tableIndex->nfields; i++)
@@ -535,7 +521,6 @@ serialize_o_index(OIndex *o_index, int *size)
 	if (o_index->predicate)
 		o_serialize_string(o_index->predicate_str, &str);
 	o_serialize_node((Node *) o_index->expressions, &str);
-	o_serialize_func_list(o_index->func_list, &str);
 
 	*size = str.len;
 	return str.data;
@@ -577,7 +562,6 @@ deserialize_o_index(OIndexChunkKey *key, Pointer data, Size length)
 	if (oIndex->predicate)
 		oIndex->predicate_str = o_deserialize_string(&ptr);
 	oIndex->expressions = (List *) o_deserialize_node(&ptr);
-	oIndex->func_list = o_deserialize_func_list(&ptr);
 	MemoryContextSwitchTo(old_mcxt);
 
 	Assert((ptr - data) == length);
@@ -762,7 +746,7 @@ o_index_fill_descr(OIndexDescr *descr, OIndex *oIndex)
 
 	PG_TRY();
 	{
-		o_func_list = oIndex->func_list;
+		o_func_hook_enabled = true;
 		descr->predicate_state = ExecInitQual(descr->predicate, NULL);
 		descr->expressions_state = NIL;
 		foreach(lc, descr->expressions)
@@ -778,11 +762,11 @@ o_index_fill_descr(OIndexDescr *descr, OIndex *oIndex)
 	}
 	PG_CATCH();
 	{
-		o_func_list = NIL;
+		o_func_hook_enabled = false;
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
-	o_func_list = NIL;
+	o_func_hook_enabled = false;
 	MemoryContextSwitchTo(old_mcxt);
 	descr->econtext = CreateStandaloneExprContext();
 

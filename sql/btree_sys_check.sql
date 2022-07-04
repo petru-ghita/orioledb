@@ -42,7 +42,7 @@ CREATE TYPE custom_range as range (subtype=int8);
 
 CREATE TYPE custom_type AS (x timestamp, y float);
 
-CREATE TABLE o_test_typecaches (
+CREATE TABLE o_test_sys_caches (
 	key o_enum,
 	key2 custom_range,
 	key3 custom_type,
@@ -51,7 +51,7 @@ CREATE TABLE o_test_typecaches (
 ) USING orioledb;
 
 DROP TYPE custom_range CASCADE;
-DROP TABLE o_test_typecaches;
+DROP TABLE o_test_sys_caches;
 DROP TYPE o_enum;
 DROP TYPE custom_type;
 
@@ -106,7 +106,7 @@ SELECT regexp_replace(
 		'NNN, NNN, X/X, ',
 		'g');
 
--- SYS_TREES_RECORD_CACHE
+-- SYS_TREES_CLASS_CACHE
 SELECT regexp_replace(
 		orioledb_sys_tree_structure(8, 'ne'),
 		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
@@ -125,6 +125,21 @@ SELECT orioledb_sys_tree_structure(10, 'ne');
 
 -- SYS_TREES_EXTENTS_LEN_OFF
 SELECT orioledb_sys_tree_structure(11, 'ne');
+
+-- SYS_TREES_PROC_CACHE
+SELECT regexp_replace(
+		orioledb_sys_tree_structure(12, 'ne'),
+		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
+		'NNN, NNN, X/X, ',
+		'g');
+
+-- SYS_TREES_TYPE_CACHE
+SELECT regexp_replace(
+		orioledb_sys_tree_structure(13, 'ne'),
+		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
+		'NNN, NNN, X/X, ',
+		'g');
+
 
 -- fail
 SELECT orioledb_sys_tree_structure(9999);

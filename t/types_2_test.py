@@ -261,11 +261,11 @@ class TypesTest(BaseTest):
 		node.safe_psql('postgres', """
 			DROP TYPE num_1 CASCADE;
 		""")
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		node.stop(['-m', 'immediate'])
 
 		node.start()
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.assertEqual(
 			node.execute("SELECT COUNT(*) FROM num_table;")[0][0],
 			3)
@@ -337,12 +337,12 @@ class TypesTest(BaseTest):
 		node.safe_psql('postgres', """
 			DROP TYPE coord_1 CASCADE;
 		""")
-		self.check_total_deleted(node, 'RECORD_CACHE', 2, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 2, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 3, 0)
 		node.stop(['-m', 'immediate'])
 
 		node.start()
-		self.check_total_deleted(node, 'RECORD_CACHE', 2, 1)
+		self.check_total_deleted(node, 'CLASS_CACHE', 2, 1)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE',3, 1)
 		self.assertEqual(
 			node.execute("SELECT COUNT(*) FROM coordinates_table;")[0][0],
@@ -374,7 +374,7 @@ class TypesTest(BaseTest):
 		""")
 
 		self.check_total_deleted(node, 'ENUM_CACHE', 1, 0)
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 0, 0)
 
 		self.assertEqual(
@@ -386,7 +386,7 @@ class TypesTest(BaseTest):
 		node.start()
 
 		self.check_total_deleted(node, 'ENUM_CACHE', 1, 0)
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 0, 0)
 
 		self.assertEqual(
@@ -420,7 +420,7 @@ class TypesTest(BaseTest):
 		""")
 
 		self.check_total_deleted(node, 'ENUM_CACHE', 1, 0)
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 0, 0)
 
 		self.assertEqual(
@@ -432,7 +432,7 @@ class TypesTest(BaseTest):
 		node.start()
 
 		self.check_total_deleted(node, 'ENUM_CACHE', 1, 0)
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 0, 0)
 
 		self.assertEqual(
@@ -444,7 +444,7 @@ class TypesTest(BaseTest):
 		""")
 
 		self.check_total_deleted(node, 'ENUM_CACHE', 1, 0)
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 0, 0)
 
 		node.stop(['-m', 'immediate'])
@@ -452,7 +452,7 @@ class TypesTest(BaseTest):
 		node.start()
 
 		self.check_total_deleted(node, 'ENUM_CACHE', 1, 0)
-		self.check_total_deleted(node, 'RECORD_CACHE', 0, 0)
+		self.check_total_deleted(node, 'CLASS_CACHE', 0, 0)
 		self.check_total_deleted(node, 'TYPE_ELEMENT_CACHE', 0, 0)
 
 		node.stop()

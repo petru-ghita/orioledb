@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * o_enum_cache.c
- *		Routines for orioledb enum and enumoid type caches.
+ *		Routines for orioledb enum and enumoid system caches.
  *
  * enum_cache is TOAST tree that contains cached enum and its values
  * metadata from pg_type.
@@ -20,7 +20,7 @@
 
 #include "orioledb.h"
 
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "recovery/recovery.h"
 
 #if PG_VERSION_NUM >= 150000
@@ -32,8 +32,8 @@
 #include "miscadmin.h"
 #include "utils/syscache.h"
 
-static OTypeCache *enum_cache = NULL;
-static OTypeCache *enumoid_cache = NULL;
+static OSysCache *enum_cache = NULL;
+static OSysCache *enumoid_cache = NULL;
 
 static void o_enum_cache_fill_entry(Pointer *entry_ptr, Oid datoid, Oid typoid,
 									XLogRecPtr insert_lsn, Pointer arg);
@@ -67,17 +67,17 @@ typedef struct TypeCacheEnumData
 /* Copied fields of TypeCacheEnumData */
 struct OEnum
 {
-	OTypeKey	key;
+	OSysCacheKey	key;
 	Oid			bitmap_base;	/* OID corresponding to bit 0 of bitmapset */
 	Bitmapset  *sorted_values;	/* Set of OIDs known to be in order */
 	int			num_values;		/* total number of values in enum */
 	EnumItem   *enum_values;
 };
 
-O_TYPE_CACHE_FUNCS(enum_cache, OEnum);
-O_TYPE_CACHE_FUNCS(enumoid_cache, OEnumOid);
+O_SYS_CACHE_FUNCS(enum_cache, OEnum);
+O_SYS_CACHE_FUNCS(enumoid_cache, OEnumOid);
 
-static OTypeCacheFuncs enum_cache_funcs =
+static OSysCacheFuncs enum_cache_funcs =
 {
 	.free_entry = o_enum_cache_free_entry,
 	.fill_entry = o_enum_cache_fill_entry,
@@ -86,7 +86,7 @@ static OTypeCacheFuncs enum_cache_funcs =
 	.delete_hook = o_enum_cache_delete_hook
 };
 
-static OTypeCacheFuncs enumoid_cache_funcs =
+static OSysCacheFuncs enumoid_cache_funcs =
 {
 	.free_entry = o_enumoid_cache_free_entry,
 	.fill_entry = o_enumoid_cache_fill_entry
@@ -100,24 +100,24 @@ static OTypeCacheFuncs enumoid_cache_funcs =
 /*
  * Initializes the enum B-tree memory.
  */
-O_TYPE_CACHE_INIT_FUNC(enum_cache)
+O_SYS_CACHE_INIT_FUNC(enum_cache)
 {
-	enum_cache = o_create_type_cache(SYS_TREES_ENUM_CACHE,
-									 true, false,
-									 TypeRelationId,
-									 fastcache,
-									 mcxt,
-									 &enum_cache_funcs);
+	enum_cache = o_create_sys_cache(SYS_TREES_ENUM_CACHE,
+									true, false,
+									TypeRelationId,
+									fastcache,
+									mcxt,
+									&enum_cache_funcs);
 }
 
-O_TYPE_CACHE_INIT_FUNC(enumoid_cache)
+O_SYS_CACHE_INIT_FUNC(enumoid_cache)
 {
-	enumoid_cache = o_create_type_cache(SYS_TREES_ENUMOID_CACHE,
-										false, false,
-										EnumRelationId,
-										fastcache,
-										mcxt,
-										&enumoid_cache_funcs);
+	enumoid_cache = o_create_sys_cache(SYS_TREES_ENUMOID_CACHE,
+									   false, false,
+									   EnumRelationId,
+									   fastcache,
+									   mcxt,
+									   &enumoid_cache_funcs);
 }
 
 void
@@ -271,24 +271,13 @@ TypeCacheEntry *
 o_enum_cmp_internal_hook(Oid enum_oid, MemoryContext mcxt)
 {
 	TypeCacheEntry *typcache = NULL;
-	XLogRecPtr	cur_lsn = is_recovery_in_progress() ?
-	GetXLogReplayRecPtr(NULL) :
-	GetXLogWriteRecPtr();
+	XLogRecPtr	cur_lsn;
 	Oid			datoid;
 	OEnum	   *o_enum;
 	MemoryContext prev_context;
 	OEnumOid   *enumoid;
 
-	if (OidIsValid(MyDatabaseId))
-	{
-		datoid = MyDatabaseId;
-	}
-	else
-	{
-		Assert(OidIsValid(o_type_cmp_datoid));
-		datoid = o_type_cmp_datoid;
-	}
-
+	o_sys_cache_set_datoid_lsn(&cur_lsn, &datoid);
 	enumoid = o_enumoid_cache_search(datoid, enum_oid, cur_lsn);
 	o_enum = o_enum_cache_search(datoid, enumoid->enumtypid, cur_lsn);
 	if (o_enum)

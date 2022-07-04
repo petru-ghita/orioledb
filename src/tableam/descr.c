@@ -22,6 +22,7 @@
 #include "catalog/free_extents.h"
 #include "catalog/o_indices.h"
 #include "catalog/o_opclass.h"
+#include "catalog/o_sys_cache.h"
 #include "catalog/o_tables.h"
 #include "catalog/sys_trees.h"
 #include "recovery/recovery.h"
@@ -977,6 +978,7 @@ oFillFieldOpClassAndComparator(OIndexField *field, Oid datoid, Oid opclassoid)
 	field->opclass = opclassoid;
 	field->inputtype = opclass->inputtype;
 	field->opfamily = opclass->opfamily;
+	o_sys_cache_cmp_datoid = datoid;
 	field->comparator = o_find_opclass_comparator(opclass, field->collation);
 
 	Assert(field->comparator != NULL);
@@ -1090,7 +1092,7 @@ o_find_opclass_comparator(OOpclass *opclass, Oid collation)
 	 * function.
 	 */
 	Assert(OidIsValid(opclass->key.datoid));	/* ssup may use SysCache */
-	if (MyDatabaseId == opclass->key.datoid && opclass->hasSsup)
+	if (MyDatabaseId == opclass->key.datoid && OidIsValid(opclass->ssupOid))
 	{
 		SortSupportData ssup;
 		FmgrInfo	finfo;
@@ -1101,10 +1103,7 @@ o_find_opclass_comparator(OOpclass *opclass, Oid collation)
 		ssup.ssup_collation = collation;
 		ssup.abbreviate = false;
 
-		o_type_procedure_fill_finfo(&finfo,
-									&opclass->ssupProc,
-									opclass->ssupOid,
-									1);
+		o_proc_cache_fill_finfo(&finfo, opclass->ssupOid);
 
 		FunctionCall1(&finfo, PointerGetDatum(&ssup));
 
@@ -1123,10 +1122,7 @@ o_find_opclass_comparator(OOpclass *opclass, Oid collation)
 	 */
 	if (!comparator.haveSortSupport)
 	{
-		o_type_procedure_fill_finfo(&comparator.finfo,
-									&opclass->cmpProc,
-									opclass->cmpOid,
-									2);
+		o_proc_cache_fill_finfo(&comparator.finfo, opclass->cmpOid);
 	}
 
 	return o_add_comparator_to_cache(&comparator);

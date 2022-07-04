@@ -48,7 +48,7 @@ ALTER TYPE o_enum ADD VALUE 'd';
 ALTER TYPE o_enum RENAME VALUE 'd' TO 'e';
 CREATE TYPE custom_range as range (subtype=int8);
 CREATE TYPE custom_type AS (x timestamp, y float);
-CREATE TABLE o_test_typecaches (
+CREATE TABLE o_test_sys_caches (
 	key o_enum,
 	key2 custom_range,
 	key3 custom_type,
@@ -56,8 +56,8 @@ CREATE TABLE o_test_typecaches (
 	PRIMARY KEY(key, key2, key3, key4)
 ) USING orioledb;
 DROP TYPE custom_range CASCADE;
-NOTICE:  drop cascades to column key2 of table o_test_typecaches
-DROP TABLE o_test_typecaches;
+NOTICE:  drop cascades to column key2 of table o_test_sys_caches
+DROP TABLE o_test_sys_caches;
 DROP TYPE o_enum;
 DROP TYPE custom_type;
 CHECKPOINT;
@@ -143,52 +143,21 @@ SELECT regexp_replace(
 		'\(\d+, \d+\)',
 		'(NNN, NNN)',
 		'g');
-                                                                           regexp_replace                                                                            
----------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Page 0: level = 1, maxKeyLen = 8                                                                                                                                   +
- state = free, datoid equal, relnode equal, ix_type = primary, clean                                                                                                +
-     Leftmost, Rightmost                                                                                                                                            +
-   Chunk 0: offset = 0, location = 512, hikey location = 64                                                                                                         +
-     Item 0: offset = 520, downlink = 1                                                                                                                             +
-     Item 1: offset = 528, downlink = 2, key = (NNN, NNN)                                                                                                           +
-     Item 2: offset = 544, downlink = 3, key = (NNN, NNN)                                                                                                           +
-     Item 3: offset = 560, downlink = 4, key = (NNN, NNN)                                                                                                           +
-                                                                                                                                                                    +
- Page 1: level = 0, maxKeyLen = 8, nVacatedBytes = 0                                                                                                                +
- state = free, datoid equal, relnode equal, ix_type = primary, clean                                                                                                +
-     Leftmost, Rightlink is invalid                                                                                                                                 +
-     Hikey: offset = 72, key = (NNN, NNN)                                                                                                                           +
-   Chunk 0: offset = 0, location = 256, hikey location = 64, hikey = (NNN, NNN)                                                                                     +
-     Item 0: offset = 264, tuple = ((NNN, NNN), opfamily: 1976, has_ssup: Y, inputtype: 23, cmpproc: ('btint4cmp', ''), sortsupportproc: ('btint4sortsupport', '')) +
-   Chunk 1: offset = 1, location = 2360, hikey location = 72, hikey = (NNN, NNN)                                                                                    +
-     Item 1: offset = 2368, tuple = ((NNN, NNN), opfamily: 1976, has_ssup: Y, inputtype: 21, cmpproc: ('btint2cmp', ''), sortsupportproc: ('btint2sortsupport', ''))+
-                                                                                                                                                                    +
- Page 2: level = 0, maxKeyLen = 8, nVacatedBytes = 0                                                                                                                +
- state = free, datoid equal, relnode equal, ix_type = primary, clean                                                                                                +
-     Rightlink is invalid                                                                                                                                           +
-     Hikey: offset = 88, key = (NNN, NNN)                                                                                                                           +
-   Chunk 0: offset = 0, location = 256, hikey location = 72, hikey = (NNN, NNN)                                                                                     +
-     Item 0: offset = 264, tuple = ((NNN, NNN), opfamily: 1994, has_ssup: Y, inputtype: 25, cmpproc: ('bttextcmp', ''), sortsupportproc: ('bttextsortsupport', '')) +
-   Chunk 1: offset = 1, location = 2360, hikey location = 80, hikey = (NNN, NNN)                                                                                    +
-     Item 1: offset = 2368, tuple = ((NNN, NNN), opfamily: 2789, has_ssup: N, inputtype: 27, cmpproc: ('bttidcmp', ''), sortsupportproc: ('', ''))                  +
-   Chunk 2: offset = 2, location = 4464, hikey location = 88, hikey = (NNN, NNN)                                                                                    +
-     Item 2: offset = 4472, tuple = ((NNN, NNN), opfamily: 397, has_ssup: N, inputtype: 2277, cmpproc: ('btarraycmp', ''), sortsupportproc: ('', ''))               +
-                                                                                                                                                                    +
- Page 3: level = 0, maxKeyLen = 8, nVacatedBytes = 0                                                                                                                +
- state = free, datoid equal, relnode equal, ix_type = primary, clean                                                                                                +
-     Rightlink is invalid                                                                                                                                           +
-     Hikey: offset = 72, key = (NNN, NNN)                                                                                                                           +
-   Chunk 0: offset = 0, location = 256, hikey location = 64, hikey = (NNN, NNN)                                                                                     +
-     Item 0: offset = 264, tuple = ((NNN, NNN), opfamily: 2994, has_ssup: N, inputtype: 2249, cmpproc: ('btrecordcmp', ''), sortsupportproc: ('', ''))              +
-   Chunk 1: offset = 1, location = 2360, hikey location = 72, hikey = (NNN, NNN)                                                                                    +
-     Item 1: offset = 2368, tuple = ((NNN, NNN), opfamily: 3522, has_ssup: N, inputtype: 3500, cmpproc: ('enum_cmp', ''), sortsupportproc: ('', ''))                +
-                                                                                                                                                                    +
- Page 4: level = 0, maxKeyLen = 8, nVacatedBytes = 0                                                                                                                +
- state = free, datoid equal, relnode equal, ix_type = primary, clean                                                                                                +
-     Rightmost                                                                                                                                                      +
-   Chunk 0: offset = 0, location = 256, hikey location = 64                                                                                                         +
-     Item 0: offset = 264, tuple = ((NNN, NNN), opfamily: 3901, has_ssup: N, inputtype: 3831, cmpproc: ('range_cmp', ''), sortsupportproc: ('', ''))                +
-                                                                                                                                                                    +
+                                              regexp_replace                                               
+-----------------------------------------------------------------------------------------------------------
+ Page 0: level = 0, maxKeyLen = 8, nVacatedBytes = 0                                                      +
+ state = free, datoid equal, relnode equal, ix_type = primary, clean                                      +
+     Leftmost, Rightmost                                                                                  +
+   Chunk 0: offset = 0, location = 256, hikey location = 64                                               +
+     Item 0: offset = 272, tuple = ((NNN, NNN), opfamily: 1976, inputtype: 23, cmpOid: 351, ssupOid: 3130)+
+     Item 1: offset = 312, tuple = ((NNN, NNN), opfamily: 1976, inputtype: 21, cmpOid: 350, ssupOid: 3129)+
+     Item 2: offset = 352, tuple = ((NNN, NNN), opfamily: 1994, inputtype: 25, cmpOid: 360, ssupOid: 3255)+
+     Item 3: offset = 392, tuple = ((NNN, NNN), opfamily: 2789, inputtype: 27, cmpOid: 2794, ssupOid: 0)  +
+     Item 4: offset = 432, tuple = ((NNN, NNN), opfamily: 397, inputtype: 2277, cmpOid: 382, ssupOid: 0)  +
+     Item 5: offset = 472, tuple = ((NNN, NNN), opfamily: 2994, inputtype: 2249, cmpOid: 2987, ssupOid: 0)+
+     Item 6: offset = 512, tuple = ((NNN, NNN), opfamily: 3522, inputtype: 3500, cmpOid: 3514, ssupOid: 0)+
+     Item 7: offset = 552, tuple = ((NNN, NNN), opfamily: 3901, inputtype: 3831, cmpOid: 3870, ssupOid: 0)+
+                                                                                                          +
  
 (1 row)
 
@@ -235,18 +204,18 @@ SELECT regexp_replace(
 		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
 		'NNN, NNN, X/X, ',
 		'g');
-                                                                             regexp_replace                                                                              
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Page 0: level = 0, maxKeyLen = 24, nVacatedBytes = 1080                                                                                                                +
- state = free, datoid equal, relnode equal, ix_type = primary, dirty                                                                                                    +
-     Leftmost, Rightmost                                                                                                                                                +
-   Chunk 0: offset = 0, location = 256, hikey location = 64                                                                                                             +
-     Item 0: deleted, offset = 264, tuple = ((NNN, NNN, X/X, Y), elem_typlen: 8, elem_typbyval: Y, elem_typalign: 100,rng_collation: 0, rng_cmp_proc: ('btint8cmp', ''))+
-                                                                                                                                                                        +
+                                                                      regexp_replace                                                                       
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Page 0: level = 0, maxKeyLen = 24, nVacatedBytes = 56                                                                                                    +
+ state = free, datoid equal, relnode equal, ix_type = primary, dirty                                                                                      +
+     Leftmost, Rightmost                                                                                                                                  +
+   Chunk 0: offset = 0, location = 256, hikey location = 64                                                                                               +
+     Item 0: deleted, offset = 264, tuple = ((NNN, NNN, X/X, Y), elem_typlen: 8, elem_typbyval: Y, elem_typalign: 100, rng_collation: 0, rng_cmp_oid: 842)+
+                                                                                                                                                          +
  
 (1 row)
 
--- SYS_TREES_RECORD_CACHE
+-- SYS_TREES_CLASS_CACHE
 SELECT regexp_replace(
 		orioledb_sys_tree_structure(8, 'ne'),
 		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
@@ -269,18 +238,16 @@ SELECT regexp_replace(
 		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
 		'NNN, NNN, X/X, ',
 		'g');
-                                                         regexp_replace                                                          
----------------------------------------------------------------------------------------------------------------------------------
- Page 0: level = 0, maxKeyLen = 24, nVacatedBytes = 0                                                                           +
- state = free, datoid equal, relnode equal, ix_type = primary, clean                                                            +
-     Leftmost, Rightmost                                                                                                        +
-   Chunk 0: offset = 0, location = 256, hikey location = 72, hikey = (NNN, NNN, X/X, N)                                         +
-     Item 0: offset = 264, tuple = ((NNN, NNN, X/X, N), typlen: 4, typbyval: Y, typalign: 105, cmp_proc: ('btint4cmp', ''))     +
-   Chunk 1: offset = 1, location = 1336, hikey location = 96, hikey = (NNN, NNN, X/X, N)                                        +
-     Item 1: offset = 1344, tuple = ((NNN, NNN, X/X, N), typlen: 8, typbyval: Y, typalign: 100, cmp_proc: ('btfloat8cmp', ''))  +
-   Chunk 2: offset = 2, location = 2416, hikey location = 120                                                                   +
-     Item 2: offset = 2424, tuple = ((NNN, NNN, X/X, N), typlen: 8, typbyval: Y, typalign: 100, cmp_proc: ('timestamp_cmp', ''))+
-                                                                                                                                +
+                            regexp_replace                             
+-----------------------------------------------------------------------
+ Page 0: level = 0, maxKeyLen = 24, nVacatedBytes = 0                 +
+ state = free, datoid equal, relnode equal, ix_type = primary, clean  +
+     Leftmost, Rightmost                                              +
+   Chunk 0: offset = 0, location = 256, hikey location = 64           +
+     Item 0: offset = 264, tuple = ((NNN, NNN, X/X, N), cmp_oid: 351) +
+     Item 1: offset = 312, tuple = ((NNN, NNN, X/X, N), cmp_oid: 355) +
+     Item 2: offset = 360, tuple = ((NNN, NNN, X/X, N), cmp_oid: 2045)+
+                                                                      +
  
 (1 row)
 
@@ -308,9 +275,59 @@ SELECT orioledb_sys_tree_structure(11, 'ne');
  
 (1 row)
 
+-- SYS_TREES_PROC_CACHE
+SELECT regexp_replace(
+		orioledb_sys_tree_structure(12, 'ne'),
+		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
+		'NNN, NNN, X/X, ',
+		'g');
+                           regexp_replace                            
+---------------------------------------------------------------------
+ Page 0: level = 0, maxKeyLen = 32, nVacatedBytes = 0               +
+ state = free, datoid equal, relnode equal, ix_type = primary, clean+
+     Leftmost, Rightmost                                            +
+   Chunk 0: offset = 0, location = 256, hikey location = 64         +
+     Item 0: offset = 288, tuple = (((NNN, NNN, X/X, N), 0), 66)    +
+     Item 1: offset = 408, tuple = (((NNN, NNN, X/X, N), 0), 66)    +
+     Item 2: offset = 528, tuple = (((NNN, NNN, X/X, N), 0), 68)    +
+     Item 3: offset = 648, tuple = (((NNN, NNN, X/X, N), 0), 66)    +
+     Item 4: offset = 768, tuple = (((NNN, NNN, X/X, N), 0), 67)    +
+     Item 5: offset = 888, tuple = (((NNN, NNN, X/X, N), 0), 66)    +
+     Item 6: offset = 1008, tuple = (((NNN, NNN, X/X, N), 0), 70)   +
+     Item 7: offset = 1136, tuple = (((NNN, NNN, X/X, N), 0), 65)   +
+     Item 8: offset = 1256, tuple = (((NNN, NNN, X/X, N), 0), 68)   +
+     Item 9: offset = 1376, tuple = (((NNN, NNN, X/X, N), 0), 74)   +
+     Item 10: offset = 1504, tuple = (((NNN, NNN, X/X, N), 0), 74)  +
+     Item 11: offset = 1632, tuple = (((NNN, NNN, X/X, N), 0), 74)  +
+     Item 12: offset = 1760, tuple = (((NNN, NNN, X/X, N), 0), 65)  +
+     Item 13: offset = 1880, tuple = (((NNN, NNN, X/X, N), 0), 66)  +
+                                                                    +
+ 
+(1 row)
+
+-- SYS_TREES_TYPE_CACHE
+SELECT regexp_replace(
+		orioledb_sys_tree_structure(13, 'ne'),
+		'\d+, \d+, [A-F0-9]+/[A-F0-9]+, ',
+		'NNN, NNN, X/X, ',
+		'g');
+                           regexp_replace                            
+---------------------------------------------------------------------
+ Page 0: level = 0, maxKeyLen = 32, nVacatedBytes = 0               +
+ state = free, datoid equal, relnode equal, ix_type = primary, clean+
+     Leftmost, Rightmost                                            +
+   Chunk 0: offset = 0, location = 256, hikey location = 64         +
+     Item 0: offset = 264, tuple = (((NNN, NNN, X/X, N), 0), 112)   +
+     Item 1: offset = 432, tuple = (((NNN, NNN, X/X, N), 0), 112)   +
+     Item 2: offset = 600, tuple = (((NNN, NNN, X/X, N), 0), 112)   +
+     Item 3: offset = 768, tuple = (((NNN, NNN, X/X, N), 0), 112)   +
+                                                                    +
+ 
+(1 row)
+
 -- fail
 SELECT orioledb_sys_tree_structure(9999);
-ERROR:  Value num must be in the range from 1 to 11
+ERROR:  Value num must be in the range from 1 to 13
 SELECT orioledb_sys_tree_check(-1111);
-ERROR:  Value num must be in the range from 1 to 11
+ERROR:  Value num must be in the range from 1 to 13
 DROP EXTENSION orioledb CASCADE;

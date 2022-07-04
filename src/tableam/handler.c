@@ -23,7 +23,7 @@
 #include "catalog/indices.h"
 #include "catalog/o_opclass.h"
 #include "catalog/o_tables.h"
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "tableam/descr.h"
 #include "tableam/handler.h"
 #include "tableam/operations.h"

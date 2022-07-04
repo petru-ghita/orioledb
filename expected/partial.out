@@ -134,32 +134,32 @@ CREATE TABLE o_test_sql_func (
 CREATE INDEX o_test_sql_func_ix_p_p ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_p_p(val, val + 10));
 ERROR:  function "my_eq_p_p" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_sql_func_ix_p_s ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_p_s(val, val + 10));
 ERROR:  function "my_eq_p_s" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_sql_func_ix_p_sb ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_p_sb(val, val + 10));
 ERROR:  function "my_eq_p_sb" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_sql_func_ix_p_i ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_p_i(val % 2, 0));
 ERROR:  function "my_eq_p_i" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_sql_func_ix_p_b ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_p_b(val % 3, 0));
 ERROR:  function "my_eq_p_b" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_sql_func_ix_p_c ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_p_c(val % 4, 0));
 ERROR:  function "my_eq_p_c" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 -- TODO: Remove all EXPLAIN SELECT-s an \d below
 CREATE INDEX o_test_sql_func_ix_s_p ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_s_p(val, val + 10));
 ERROR:  function "my_cmp_plpgsql" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CONTEXT:  SQL function "my_eq_s_p" during body validation
 CREATE INDEX o_test_sql_func_ix_s_s ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_s_s(val, val * 11));
@@ -173,7 +173,7 @@ SQL function "my_eq_s_s_s_s" during body validation
 CREATE INDEX o_test_sql_func_ix_s_s_s_p ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_s_s_s_p(val, val * 11));
 ERROR:  function "my_cmp_plpgsql" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CONTEXT:  SQL function "my_cmp_sql_plpgsql" during body validation
 SQL function "my_cmp_sql_sql_plpgsql" during body validation
 SQL function "my_eq_s_s_s_p" during body validation
@@ -182,7 +182,7 @@ CREATE INDEX o_test_sql_func_ix_s_sb ON
 CREATE INDEX o_test_sql_func_ix_s_i ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_s_i(val % 2, 0));
 ERROR:  function "my_cmp_inter" cannot be used here
-HINT:  only immutable and stable functions are supported in predicates and expressions of orioledb indices
+HINT:  only immutable and stable functions are supported in orioledb index predicate
 CONTEXT:  SQL function "my_eq_s_i" during body validation
 CREATE INDEX o_test_sql_func_ix_s_b ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_s_b(val % 3, 0));
@@ -191,7 +191,7 @@ CREATE INDEX o_test_sql_func_ix_s_c ON
 CREATE INDEX o_test_sql_func_ix_sb_p ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_sb_p(val, val + 10));
 ERROR:  function "my_cmp_plpgsql" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CONTEXT:  SQL function "my_eq_sb_p" during body validation
 CREATE INDEX o_test_sql_func_ix_sb_s ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_sb_s(val, val * 11));
@@ -200,7 +200,7 @@ CREATE INDEX o_test_sql_func_ix_sb_sb ON
 CREATE INDEX o_test_sql_func_ix_sb_i ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_sb_i(val % 2, 0));
 ERROR:  function "my_cmp_inter" cannot be used here
-HINT:  only immutable and stable functions are supported in predicates and expressions of orioledb indices
+HINT:  only immutable and stable functions are supported in orioledb index predicate
 CONTEXT:  SQL function "my_eq_sb_i" during body validation
 CREATE INDEX o_test_sql_func_ix_sb_b ON 
 	o_test_sql_func(val) WHERE (my_funcs.my_eq_sb_b(val % 3, 0));
@@ -218,7 +218,7 @@ CREATE SEQUENCE o_test_sql_func_seq;
 CREATE INDEX o_test_sql_func_ix_nv ON 
 	o_test_sql_func(val) WHERE (nextval('o_test_sql_func_seq') % 2 = 0);
 ERROR:  function "nextval" cannot be used here
-HINT:  only immutable and stable functions are supported in predicates and expressions of orioledb indices
+HINT:  only immutable and stable functions are supported in orioledb index predicate
 DROP SEQUENCE o_test_sql_func_seq;
 CREATE INDEX o_test_sql_func_ix_ss ON 
 	o_test_sql_func(((SELECT * FROM generate_series(1, 10) LIMIT 1) = val));

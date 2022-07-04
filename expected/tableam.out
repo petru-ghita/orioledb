@@ -254,27 +254,27 @@ CREATE INDEX o_test_partial_ix5 ON o_test_partial (key)
 CREATE INDEX o_test_partial_ix6 ON o_test_partial (key)
 	WHERE boolfunc_test(key);
 ERROR:  function "boolfunc_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_partial_ix6 ON o_test_partial (key)
 	WHERE plpgsql_func_test(key) = 0;
 ERROR:  function "plpgsql_func_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_partial_ix7 ON o_test_partial (key)
 	WHERE plpgsql_func_test(-key) * 2 = 0;
 ERROR:  function "plpgsql_func_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_partial_ix7 ON o_test_partial (key)
 	WHERE plpgsql_func_test(-key) * 2 = 0;
 ERROR:  function "plpgsql_func_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_partial_ix7 ON o_test_partial (key)
 	WHERE COALESCE(NULL, NULL, (plpgsql_func_test(-key) > 0)) != NULL;
 ERROR:  function "plpgsql_func_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_partial_ix7 ON o_test_partial (key)
 	WHERE GREATEST(NULL, NULL, (ABS(plpgsql_func_test(-key)) > 0)) != NULL;
 ERROR:  function "plpgsql_func_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index predicate
 CREATE INDEX o_test_partial_ix8 ON o_test_partial (value)
 	WHERE value > '5';
 CREATE INDEX o_test_partial_ix9 ON o_test_partial (value)
@@ -936,7 +936,7 @@ CREATE INDEX o_test_expression_ix7
 CREATE INDEX o_test_expression_ix8
 	ON o_test_expression (boolfunc_test(key));
 ERROR:  function "boolfunc_test" cannot be used here
-HINT:  only C and SQL functions are supported in predicates and expressions of orioledb indices
+HINT:  only C and SQL functions are supported in orioledb index expressions
 SELECT orioledb_tbl_indices('o_test_expression'::regclass);
                              orioledb_tbl_indices                             
 ------------------------------------------------------------------------------

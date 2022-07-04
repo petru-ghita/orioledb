@@ -20,7 +20,7 @@
 #include "btree/scan.h"
 #include "catalog/o_opclass.h"
 #include "catalog/o_tables.h"
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "catalog/sys_trees.h"
 #include "checkpoint/checkpoint.h"
 #include "recovery/recovery.h"
@@ -764,7 +764,7 @@ orioledb_shmem_startup(void)
 
 	o_tableam_descr_init();
 	o_compress_init();
-	o_typecaches_init();
+	o_sys_caches_init();
 	o_opclass_init();
 
 	before_shmem_exit(orioledb_on_shmem_exit, (Datum) 0);

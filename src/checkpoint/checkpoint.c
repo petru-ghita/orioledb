@@ -27,7 +27,7 @@
 #include "catalog/free_extents.h"
 #include "catalog/o_indices.h"
 #include "catalog/o_tables.h"
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "catalog/sys_trees.h"
 #include "checkpoint/checkpoint.h"
 #include "recovery/internal.h"
@@ -1136,7 +1136,9 @@ o_after_checkpoint_cleanup_hook(XLogRecPtr checkPointRedo, int flags)
 		o_range_cache_delete_by_lsn(checkPointRedo);
 		o_type_element_cache_delete_by_lsn(checkPointRedo);
 		o_enum_cache_delete_by_lsn(checkPointRedo);
-		o_record_cache_delete_by_lsn(checkPointRedo);
+		o_class_cache_delete_by_lsn(checkPointRedo);
+		o_proc_cache_delete_by_lsn(checkPointRedo);
+		o_type_cache_delete_by_lsn(checkPointRedo);
 	}
 }
 

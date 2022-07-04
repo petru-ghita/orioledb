@@ -15,7 +15,7 @@
 
 #include "orioledb.h"
 
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "catalog/sys_trees.h"
 #include "recovery/recovery.h"
 
@@ -29,16 +29,16 @@
 #include "utils/builtins.h"
 #include "utils/syscache.h"
 
-static OTypeCache *type_element_cache = NULL;
+static OSysCache *type_element_cache = NULL;
 
 static void o_type_element_cache_free_entry(Pointer entry);
 static void o_type_element_cache_fill_entry(Pointer *entry_ptr, Oid datoid,
 											Oid typoid, XLogRecPtr insert_lsn,
 											Pointer arg);
 
-O_TYPE_CACHE_FUNCS(type_element_cache, OTypeElement);
+O_SYS_CACHE_FUNCS(type_element_cache, OTypeElement);
 
-static OTypeCacheFuncs type_element_cache_funcs =
+static OSysCacheFuncs type_element_cache_funcs =
 {
 	.free_entry = o_type_element_cache_free_entry,
 	.fill_entry = o_type_element_cache_fill_entry
@@ -47,14 +47,14 @@ static OTypeCacheFuncs type_element_cache_funcs =
 /*
  * Initializes the type elements cache memory.
  */
-O_TYPE_CACHE_INIT_FUNC(type_element_cache)
+O_SYS_CACHE_INIT_FUNC(type_element_cache)
 {
-	type_element_cache = o_create_type_cache(SYS_TREES_TYPE_ELEMENT_CACHE,
-											 false, false,
-											 TypeRelationId,
-											 fastcache,
-											 mcxt,
-											 &type_element_cache_funcs);
+	type_element_cache = o_create_sys_cache(SYS_TREES_TYPE_ELEMENT_CACHE,
+											false, false,
+											TypeRelationId,
+											fastcache,
+											mcxt,
+											&type_element_cache_funcs);
 }
 
 void
@@ -75,10 +75,6 @@ o_type_element_cache_fill_entry(Pointer *entry_ptr, Oid datoid, Oid typoid,
 		*entry_ptr = (Pointer) o_type_element;
 	}
 
-	o_type_element->typlen = typcache->typlen;
-	o_type_element->typbyval = typcache->typbyval;
-	o_type_element->typalign = typcache->typalign;
-
 	if (!OidIsValid(typcache->cmp_proc_finfo.fn_oid))
 		ereport(
 				ERROR,
@@ -87,8 +83,10 @@ o_type_element_cache_fill_entry(Pointer *entry_ptr, Oid datoid, Oid typoid,
 						"could not identify a comparison function for type %s",
 						format_type_be(typoid))));
 
-	o_type_procedure_fill(typcache->cmp_proc_finfo.fn_oid,
-						  &o_type_element->cmp_proc);
+	o_proc_cache_validate_add(datoid, typcache->cmp_proc_finfo.fn_oid,
+							  typcache->typcollation, "comparison",
+							  "element of compound field");
+	o_type_cache_add_if_needed(datoid, typoid, insert_lsn, NULL);
 	o_type_element->cmp_oid = typcache->cmp_proc_finfo.fn_oid;
 }
 
@@ -102,38 +100,22 @@ TypeCacheEntry *
 o_type_elements_cmp_hook(Oid elemtype, MemoryContext mcxt)
 {
 	TypeCacheEntry *typcache = NULL;
+	XLogRecPtr		cur_lsn;
+	Oid				datoid;
+	OTypeElement   *type_element;
+	MemoryContext	prev_context;
 
-	XLogRecPtr	cur_lsn = is_recovery_in_progress() ?
-	GetXLogReplayRecPtr(NULL) :
-	GetXLogWriteRecPtr();
-	Oid			datoid;
-	OTypeElement *type_element;
-	MemoryContext prev_context;
-
-	if (OidIsValid(MyDatabaseId))
-	{
-		datoid = MyDatabaseId;
-	}
-	else
-	{
-		Assert(OidIsValid(o_type_cmp_datoid));
-		datoid = o_type_cmp_datoid;
-	}
-
+	o_sys_cache_set_datoid_lsn(&cur_lsn, &datoid);
 	type_element = o_type_element_cache_search(datoid, elemtype, cur_lsn);
 	if (type_element)
 	{
 		prev_context = MemoryContextSwitchTo(mcxt);
 		typcache = palloc0(sizeof(TypeCacheEntry));
 		typcache->type_id = elemtype;
-		typcache->typlen = type_element->typlen;
-		typcache->typbyval = type_element->typbyval;
-		typcache->typalign = type_element->typalign;
-
-		o_type_procedure_fill_finfo(&typcache->cmp_proc_finfo,
-									&type_element->cmp_proc,
-									type_element->cmp_oid,
-									2);
+		o_type_cache_fill_info(elemtype, &typcache->typlen,
+							   &typcache->typbyval, &typcache->typalign);
+		o_proc_cache_fill_finfo(&typcache->cmp_proc_finfo,
+								type_element->cmp_oid);
 		MemoryContextSwitchTo(prev_context);
 	}
 

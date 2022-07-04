@@ -109,23 +109,23 @@ static void o_opclass_tup_print(BTreeDescr *desc, StringInfo buf,
 								OTuple tup, Pointer arg);
 static JsonbValue *o_opclass_key_to_jsonb(BTreeDescr *desc, OTuple tup,
 										  JsonbParseState **state);
-static int	o_type_cache_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1,
+static int	o_sys_cache_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1,
 							 void *p2, BTreeKeyType k2);
-static void o_type_cache_key_print(BTreeDescr *desc, StringInfo buf,
+static void o_sys_cache_key_print(BTreeDescr *desc, StringInfo buf,
 								   OTuple key_tup, Pointer arg);
-static JsonbValue *o_type_cache_key_to_jsonb(BTreeDescr *desc, OTuple tup,
+static JsonbValue *o_sys_cache_key_to_jsonb(BTreeDescr *desc, OTuple tup,
 											 JsonbParseState **state);
 
-static int	o_type_cache_toast_chunk_length(BTreeDescr *desc, OTuple tuple);
-static int	o_type_cache_toast_cmp(BTreeDescr *desc, void *p1,
+static int	o_sys_cache_toast_chunk_length(BTreeDescr *desc, OTuple tuple);
+static int	o_sys_cache_toast_cmp(BTreeDescr *desc, void *p1,
 								   BTreeKeyType k1, void *p2,
 								   BTreeKeyType k2);
-static void o_type_cache_toast_key_print(BTreeDescr *desc, StringInfo buf,
+static void o_sys_cache_toast_key_print(BTreeDescr *desc, StringInfo buf,
 										 OTuple tup, Pointer arg);
-static JsonbValue *o_type_cache_toast_key_to_jsonb(BTreeDescr *desc,
+static JsonbValue *o_sys_cache_toast_key_to_jsonb(BTreeDescr *desc,
 												   OTuple tup,
 												   JsonbParseState **state);
-static void o_type_cache_toast_tup_print(BTreeDescr *desc, StringInfo buf,
+static void o_sys_cache_toast_tup_print(BTreeDescr *desc, StringInfo buf,
 										 OTuple tup, Pointer arg);
 
 static void o_range_cache_tup_print(BTreeDescr *desc, StringInfo buf,
@@ -200,62 +200,62 @@ static SysTreeMeta sysTreesMeta[] =
 		.needs_undo = NULL
 	},
 	{							/* SYS_TREES_ENUM_CACHE */
-		.keyLength = sizeof(OTypeToastChunkKey),
+		.keyLength = sizeof(OSysCacheToastChunkKey),
 		.tupleLength = -1,
-		.tupleLengthFunc = o_type_cache_toast_chunk_length,
-		.cmpFunc = o_type_cache_toast_cmp,
-		.keyPrint = o_type_cache_toast_key_print,
-		.tupPrint = o_type_cache_toast_tup_print,
-		.keyToJsonb = o_type_cache_toast_key_to_jsonb,
+		.tupleLengthFunc = o_sys_cache_toast_chunk_length,
+		.cmpFunc = o_sys_cache_toast_cmp,
+		.keyPrint = o_sys_cache_toast_key_print,
+		.tupPrint = o_sys_cache_toast_tup_print,
+		.keyToJsonb = o_sys_cache_toast_key_to_jsonb,
 		.poolType = OPagePoolCatalog,
 		.undoReserveType = UndoReserveTxn,
 		.storageType = BTreeStoragePersistence,
 		.needs_undo = NULL
 	},
 	{							/* SYS_TREES_ENUMOID_CACHE */
-		.keyLength = sizeof(OTypeKey),
+		.keyLength = sizeof(OSysCacheKey),
 		.tupleLength = sizeof(OEnumOid),
-		.cmpFunc = o_type_cache_cmp,
-		.keyPrint = o_type_cache_key_print,
+		.cmpFunc = o_sys_cache_cmp,
+		.keyPrint = o_sys_cache_key_print,
 		.tupPrint = o_enumoid_cache_tup_print,
-		.keyToJsonb = o_type_cache_key_to_jsonb,
+		.keyToJsonb = o_sys_cache_key_to_jsonb,
 		.poolType = OPagePoolCatalog,
 		.undoReserveType = UndoReserveTxn,
 		.storageType = BTreeStoragePersistence,
 		.needs_undo = NULL
 	},
 	{							/* SYS_TREES_RANGE_CACHE */
-		.keyLength = sizeof(OTypeKey),
-		.tupleLength = sizeof(ORangeType),
-		.cmpFunc = o_type_cache_cmp,
-		.keyPrint = o_type_cache_key_print,
+		.keyLength = sizeof(OSysCacheKey),
+		.tupleLength = sizeof(ORange),
+		.cmpFunc = o_sys_cache_cmp,
+		.keyPrint = o_sys_cache_key_print,
 		.tupPrint = o_range_cache_tup_print,
-		.keyToJsonb = o_type_cache_key_to_jsonb,
+		.keyToJsonb = o_sys_cache_key_to_jsonb,
 		.poolType = OPagePoolCatalog,
 		.undoReserveType = UndoReserveTxn,
 		.storageType = BTreeStoragePersistence,
 		.needs_undo = NULL
 	},
-	{							/* SYS_TREES_RECORD_CACHE */
-		.keyLength = sizeof(OTypeToastChunkKey),
+	{							/* SYS_TREES_CLASS_CACHE */
+		.keyLength = sizeof(OSysCacheToastChunkKey),
 		.tupleLength = -1,
-		.tupleLengthFunc = o_type_cache_toast_chunk_length,
-		.cmpFunc = o_type_cache_toast_cmp,
-		.keyPrint = o_type_cache_toast_key_print,
-		.tupPrint = o_type_cache_toast_tup_print,
-		.keyToJsonb = o_type_cache_toast_key_to_jsonb,
+		.tupleLengthFunc = o_sys_cache_toast_chunk_length,
+		.cmpFunc = o_sys_cache_toast_cmp,
+		.keyPrint = o_sys_cache_toast_key_print,
+		.tupPrint = o_sys_cache_toast_tup_print,
+		.keyToJsonb = o_sys_cache_toast_key_to_jsonb,
 		.poolType = OPagePoolCatalog,
 		.undoReserveType = UndoReserveTxn,
 		.storageType = BTreeStoragePersistence,
 		.needs_undo = NULL
 	},
 	{							/* SYS_TREES_TYPE_ELEMENT_CACHE */
-		.keyLength = sizeof(OTypeKey),
+		.keyLength = sizeof(OSysCacheKey),
 		.tupleLength = sizeof(OTypeElement),
-		.cmpFunc = o_type_cache_cmp,
-		.keyPrint = o_type_cache_key_print,
+		.cmpFunc = o_sys_cache_cmp,
+		.keyPrint = o_sys_cache_key_print,
 		.tupPrint = o_type_element_cache_tup_print,
-		.keyToJsonb = o_type_cache_key_to_jsonb,
+		.keyToJsonb = o_sys_cache_key_to_jsonb,
 		.poolType = OPagePoolCatalog,
 		.undoReserveType = UndoReserveTxn,
 		.storageType = BTreeStoragePersistence,
@@ -283,6 +283,32 @@ static SysTreeMeta sysTreesMeta[] =
 		.poolType = OPagePoolFreeTree,
 		.undoReserveType = UndoReserveNone,
 		.storageType = BTreeStorageTemporary,
+		.needs_undo = NULL
+	},
+	{							/* SYS_TREES_PROC_CACHE */
+		.keyLength = sizeof(OSysCacheToastChunkKey),
+		.tupleLength = -1,
+		.tupleLengthFunc = o_sys_cache_toast_chunk_length,
+		.cmpFunc = o_sys_cache_toast_cmp,
+		.keyPrint = o_sys_cache_toast_key_print,
+		.tupPrint = o_sys_cache_toast_tup_print,
+		.keyToJsonb = o_sys_cache_toast_key_to_jsonb,
+		.poolType = OPagePoolCatalog,
+		.undoReserveType = UndoReserveTxn,
+		.storageType = BTreeStoragePersistence,
+		.needs_undo = NULL
+	},
+	{							/* SYS_TREES_TYPE_CACHE */
+		.keyLength = sizeof(OSysCacheToastChunkKey),
+		.tupleLength = -1,
+		.tupleLengthFunc = o_sys_cache_toast_chunk_length,
+		.cmpFunc = o_sys_cache_toast_cmp,
+		.keyPrint = o_sys_cache_toast_key_print,
+		.tupPrint = o_sys_cache_toast_tup_print,
+		.keyToJsonb = o_sys_cache_toast_key_to_jsonb,
+		.poolType = OPagePoolCatalog,
+		.undoReserveType = UndoReserveTxn,
+		.storageType = BTreeStoragePersistence,
 		.needs_undo = NULL
 	}
 };
@@ -915,14 +941,11 @@ o_opclass_tup_print(BTreeDescr *desc, StringInfo buf, OTuple tup, Pointer arg)
 	OOpclass   *comparator = (OOpclass *) tup.data;
 
 	appendStringInfo(
-					 buf, "((%u, %u), opfamily: %u, has_ssup: %c,"
-					 " inputtype: %u, cmpproc: ('%s', '%s'),"
-					 " sortsupportproc: ('%s', '%s'))",
+					 buf, "((%u, %u), opfamily: %u, inputtype: %u, "
+						  "cmpOid: %u, ssupOid: %u)",
 					 comparator->key.datoid, comparator->key.opclassoid,
-					 comparator->opfamily, comparator->hasSsup ? 'Y' : 'N',
-					 comparator->inputtype, comparator->cmpProc.prosrc,
-					 comparator->cmpProc.probin, comparator->ssupProc.prosrc,
-					 comparator->ssupProc.probin);
+					 comparator->opfamily, comparator->inputtype,
+					 comparator->cmpOid, comparator->ssupOid);
 }
 
 static JsonbValue *
@@ -937,7 +960,7 @@ o_opclass_key_to_jsonb(BTreeDescr *desc, OTuple tup, JsonbParseState **state)
 }
 
 /*
- * Comparison function for non-TOAST typecache B-tree.
+ * Comparison function for non-TOAST sys cache B-tree.
  *
  * If none of the arguments is BTreeKeyBound it comparses by both
  * oid and lsn. It make possible to insert values with same oid.
@@ -946,34 +969,34 @@ o_opclass_key_to_jsonb(BTreeDescr *desc, OTuple tup, JsonbParseState **state)
  * If key kind is not BTreeKeyBound it expects that OTuple passed.
  */
 static int
-o_type_cache_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1, void *p2,
+o_sys_cache_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1, void *p2,
 				 BTreeKeyType k2)
 {
-	OTypeKey   *key1;
-	OTypeKey   *key2;
+	OSysCacheKey   *key1;
+	OSysCacheKey   *key2;
 
-	OTypeKey	_key;
-	bool		lsn_cmp = true;
+	OSysCacheKey	_key;
+	bool			lsn_cmp = true;
 
 	if (k1 == BTreeKeyBound)
 	{
 		key1 = &_key;
-		key1->datoid = ((OTypeKeyBound *) p1)->datoid;
-		key1->oid = ((OTypeKeyBound *) p1)->oid;
+		key1->datoid = ((OSysCacheKeyBound *) p1)->datoid;
+		key1->oid = ((OSysCacheKeyBound *) p1)->oid;
 		lsn_cmp = false;
 	}
 	else
-		key1 = (OTypeKey *) (((OTuple *) p1)->data);
+		key1 = (OSysCacheKey *) (((OTuple *) p1)->data);
 
 	if (k2 == BTreeKeyBound)
 	{
 		key2 = &_key;
-		key2->datoid = ((OTypeKeyBound *) p2)->datoid;
-		key2->oid = ((OTypeKeyBound *) p2)->oid;
+		key2->datoid = ((OSysCacheKeyBound *) p2)->datoid;
+		key2->oid = ((OSysCacheKeyBound *) p2)->oid;
 		lsn_cmp = false;
 	}
 	else
-		key2 = (OTypeKey *) (((OTuple *) p2)->data);
+		key2 = (OSysCacheKey *) (((OTuple *) p2)->data);
 
 	if (key1->datoid != key2->datoid)
 		return key1->datoid < key2->datoid ? -1 : 1;
@@ -989,13 +1012,13 @@ o_type_cache_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1, void *p2,
 }
 
 /*
- * Generic non-TOAST typecache key print function for o_print_btree_pages()
+ * Generic non-TOAST sys cache key print function for o_print_btree_pages()
  */
 static void
-o_type_cache_key_print(BTreeDescr *desc, StringInfo buf,
+o_sys_cache_key_print(BTreeDescr *desc, StringInfo buf,
 					   OTuple key_tup, Pointer arg)
 {
-	OTypeKey   *key = (OTypeKey *) key_tup.data;
+	OSysCacheKey   *key = (OSysCacheKey *) key_tup.data;
 	uint32		id,
 				off;
 
@@ -1012,7 +1035,7 @@ o_type_cache_key_print(BTreeDescr *desc, StringInfo buf,
 }
 
 static void
-o_type_cache_key_push_to_jsonb_state(OTypeKey *key, JsonbParseState **state)
+o_sys_cache_key_push_to_jsonb_state(OSysCacheKey *key, JsonbParseState **state)
 {
 	jsonb_push_int8_key(state, "datoid", key->datoid);
 	jsonb_push_int8_key(state, "oid", key->oid);
@@ -1021,89 +1044,90 @@ o_type_cache_key_push_to_jsonb_state(OTypeKey *key, JsonbParseState **state)
 }
 
 static JsonbValue *
-o_type_cache_key_to_jsonb(BTreeDescr *desc, OTuple tup,
+o_sys_cache_key_to_jsonb(BTreeDescr *desc, OTuple tup,
 						  JsonbParseState **state)
 {
-	OTypeKey   *key = (OTypeKey *) tup.data;
+	OSysCacheKey   *key = (OSysCacheKey *) tup.data;
 
 	(void) pushJsonbValue(state, WJB_BEGIN_OBJECT, NULL);
-	o_type_cache_key_push_to_jsonb_state(key, state);
+	o_sys_cache_key_push_to_jsonb_state(key, state);
 	return pushJsonbValue(state, WJB_END_OBJECT, NULL);
 }
 
 static int
-o_type_cache_toast_chunk_length(BTreeDescr *desc, OTuple tuple)
+o_sys_cache_toast_chunk_length(BTreeDescr *desc, OTuple tuple)
 {
-	OTypeToastChunk *chunk = (OTypeToastChunk *) tuple.data;
+	OSysCacheToastChunk *chunk = (OSysCacheToastChunk *) tuple.data;
 
-	return offsetof(OTypeToastChunk, data) + chunk->dataLength;
+	return offsetof(OSysCacheToastChunk, data) + chunk->dataLength;
 }
 
 /*
- * Comparison function for TOAST typecache B-tree.
+ * Comparison function for TOAST sys cache B-tree.
  *
- * If key kind BTreeKeyBound it expects OTypeToastKeyBound.
+ * If key kind BTreeKeyBound it expects OSysCacheToastKeyBound.
  * Otherwise it expects that OTuple passed.
- * It wraps OTypeToastChunkKey to OTuple to pass it to o_type_cache_cmp.
+ * It wraps OSysCacheToastChunkKey to OTuple to pass it to o_sys_cache_cmp.
  */
 static int
-o_type_cache_toast_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1,
+o_sys_cache_toast_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1,
 					   void *p2, BTreeKeyType k2)
 {
-	OTypeToastChunkKey *key1 = NULL;
-	OTypeToastChunkKey *key2 = NULL;
-	OTypeToastChunkKey _key = {0};
+	OSysCacheToastChunkKey *key1 = NULL;
+	OSysCacheToastChunkKey *key2 = NULL;
+	OSysCacheToastChunkKey _key = {0};
 	OTuple		key_tuple1 = {0},
 				key_tuple2 = {0};
-	Pointer		type_key_cmp_arg1 = NULL,
-				type_key_cmp_arg2 = NULL;
-	int			type_key_cmp_result;
+	Pointer		sys_cache_key_cmp_arg1 = NULL,
+				sys_cache_key_cmp_arg2 = NULL;
+	int			sys_cache_key_cmp_result;
 
 	if (k1 == BTreeKeyBound)
 	{
 		Assert(k2 != BTreeKeyBound);
 		key1 = &_key;
-		*key1 = ((OTypeToastKeyBound *) p1)->chunk_key;
-		if (((OTypeToastKeyBound *) p1)->lsn_cmp)
-			k1 = BTreeKeyNonLeafKey;	/* make o_type_cache_cmp to compare by
+		*key1 = ((OSysCacheToastKeyBound *) p1)->chunk_key;
+		if (((OSysCacheToastKeyBound *) p1)->lsn_cmp)
+			k1 = BTreeKeyNonLeafKey;	/* make o_sys_cache_cmp to compare by
 										 * lsn */
 		else
-			type_key_cmp_arg1 = p1;
+			sys_cache_key_cmp_arg1 = p1;
 	}
 	else
-		key1 = (OTypeToastChunkKey *) ((OTuple *) p1)->data;
+		key1 = (OSysCacheToastChunkKey *) ((OTuple *) p1)->data;
 
-	if (!type_key_cmp_arg1)
+	if (!sys_cache_key_cmp_arg1)
 	{
 		key_tuple1.data = (Pointer) key1;
-		type_key_cmp_arg1 = (Pointer) &key_tuple1;
+		sys_cache_key_cmp_arg1 = (Pointer) &key_tuple1;
 	}
 
 	if (k2 == BTreeKeyBound)
 	{
 		Assert(k1 != BTreeKeyBound);
 		key2 = &_key;
-		*key2 = ((OTypeToastKeyBound *) p2)->chunk_key;
-		if (((OTypeToastKeyBound *) p2)->lsn_cmp)
-			k2 = BTreeKeyNonLeafKey;	/* make o_type_cache_cmp to compare by
+		*key2 = ((OSysCacheToastKeyBound *) p2)->chunk_key;
+		if (((OSysCacheToastKeyBound *) p2)->lsn_cmp)
+			k2 = BTreeKeyNonLeafKey;	/* make o_sys_cache_cmp to compare by
 										 * lsn */
 		else
-			type_key_cmp_arg2 = p2;
+			sys_cache_key_cmp_arg2 = p2;
 	}
 	else
-		key2 = (OTypeToastChunkKey *) ((OTuple *) p2)->data;
+		key2 = (OSysCacheToastChunkKey *) ((OTuple *) p2)->data;
 
-	if (!type_key_cmp_arg2)
+	if (!sys_cache_key_cmp_arg2)
 	{
 		key_tuple2.data = (Pointer) key2;
-		type_key_cmp_arg2 = (Pointer) &key_tuple2;
+		sys_cache_key_cmp_arg2 = (Pointer) &key_tuple2;
 	}
 
-	type_key_cmp_result = o_type_cache_cmp(desc, type_key_cmp_arg1, k1,
-										   type_key_cmp_arg2, k2);
+	sys_cache_key_cmp_result = o_sys_cache_cmp(desc,
+											   sys_cache_key_cmp_arg1, k1,
+											   sys_cache_key_cmp_arg2, k2);
 
-	if (type_key_cmp_result != 0)
-		return type_key_cmp_result;
+	if (sys_cache_key_cmp_result != 0)
+		return sys_cache_key_cmp_result;
 
 	if (key1->offset != key2->offset)
 		return key1->offset < key2->offset ? -1 : 1;
@@ -1112,28 +1136,28 @@ o_type_cache_toast_cmp(BTreeDescr *desc, void *p1, BTreeKeyType k1,
 }
 
 /*
- * Generic TOAST typecache key print function for o_print_btree_pages()
+ * Generic TOAST sys cache key print function for o_print_btree_pages()
  */
 static void
-o_type_cache_toast_key_print(BTreeDescr *desc, StringInfo buf,
+o_sys_cache_toast_key_print(BTreeDescr *desc, StringInfo buf,
 							 OTuple tup, Pointer arg)
 {
-	OTypeToastChunkKey *key = (OTypeToastChunkKey *) tup.data;
+	OSysCacheToastChunkKey *key = (OSysCacheToastChunkKey *) tup.data;
 
 	appendStringInfo(buf, "(");
-	o_type_cache_key_print(desc, buf, tup, arg);
+	o_sys_cache_key_print(desc, buf, tup, arg);
 	appendStringInfo(buf, ", %u)",
 					 key->offset);
 }
 
 static JsonbValue *
-o_type_cache_toast_key_to_jsonb(BTreeDescr *desc, OTuple tup,
+o_sys_cache_toast_key_to_jsonb(BTreeDescr *desc, OTuple tup,
 								JsonbParseState **state)
 {
-	OTypeToastChunkKey *key = (OTypeToastChunkKey *) tup.data;
+	OSysCacheToastChunkKey *key = (OSysCacheToastChunkKey *) tup.data;
 
 	(void) pushJsonbValue(state, WJB_BEGIN_OBJECT, NULL);
-	o_type_cache_key_push_to_jsonb_state(&key->type_key, state);
+	o_sys_cache_key_push_to_jsonb_state(&key->sys_cache_key, state);
 	jsonb_push_int8_key(state, "offset", key->offset);
 	return pushJsonbValue(state, WJB_END_OBJECT, NULL);
 }
@@ -1145,32 +1169,28 @@ static void
 o_range_cache_tup_print(BTreeDescr *desc, StringInfo buf,
 						OTuple tup, Pointer arg)
 {
-	ORangeType *o_range = (ORangeType *) tup.data;
+	ORange *o_range = (ORange *) tup.data;
 
 	appendStringInfo(buf, "(");
-	o_type_cache_key_print(desc, buf, tup, arg);
-	appendStringInfo(buf, ", elem_typlen: %d, elem_typbyval: %c, elem_typalign: %d,"
-					 "rng_collation: %d, rng_cmp_proc: ('%s', '%s'))",
-					 o_range->elem_typlen,
-					 o_range->elem_typbyval ? 'Y' : 'N',
-					 o_range->elem_typalign,
-					 o_range->rng_collation,
-					 o_range->rng_cmp_proc.prosrc,
-					 o_range->rng_cmp_proc.probin);
+	o_sys_cache_key_print(desc, buf, tup, arg);
+	appendStringInfo(buf, ", elem_type: %u, rng_collation: %d, "
+						  "rng_cmp_oid: %u)",
+					 o_range->elem_type, o_range->rng_collation,
+					 o_range->rng_cmp_oid);
 }
 
 /*
  * A tuple print function for o_print_btree_pages()
  */
 static void
-o_type_cache_toast_tup_print(BTreeDescr *desc, StringInfo buf,
+o_sys_cache_toast_tup_print(BTreeDescr *desc, StringInfo buf,
 							 OTuple tup, Pointer arg)
 {
-	OTypeToastChunk *o_record_chunk = (OTypeToastChunk *) tup.data;
+	OSysCacheToastChunk *o_class_chunk = (OSysCacheToastChunk *) tup.data;
 
 	appendStringInfo(buf, "(");
-	o_type_cache_toast_key_print(desc, buf, tup, arg);
-	appendStringInfo(buf, ", %u)", o_record_chunk->dataLength);
+	o_sys_cache_toast_key_print(desc, buf, tup, arg);
+	appendStringInfo(buf, ", %u)", o_class_chunk->dataLength);
 }
 
 /*
@@ -1183,14 +1203,8 @@ o_type_element_cache_tup_print(BTreeDescr *desc, StringInfo buf,
 	OTypeElement *o_type_element = (OTypeElement *) tup.data;
 
 	appendStringInfo(buf, "(");
-	o_type_cache_key_print(desc, buf, tup, arg);
-	appendStringInfo(buf, ", typlen: %d, typbyval: %c, typalign: %d, "
-					 "cmp_proc: ('%s', '%s'))",
-					 o_type_element->typlen,
-					 o_type_element->typbyval ? 'Y' : 'N',
-					 o_type_element->typalign,
-					 o_type_element->cmp_proc.prosrc,
-					 o_type_element->cmp_proc.probin);
+	o_sys_cache_key_print(desc, buf, tup, arg);
+	appendStringInfo(buf, ", cmp_oid: %u)", o_type_element->cmp_oid);
 }
 
 /*
@@ -1203,7 +1217,7 @@ o_enumoid_cache_tup_print(BTreeDescr *desc, StringInfo buf,
 	OEnumOid   *o_enumoid = (OEnumOid *) tup.data;
 
 	appendStringInfo(buf, "(");
-	o_type_cache_key_print(desc, buf, tup, arg);
+	o_sys_cache_key_print(desc, buf, tup, arg);
 	appendStringInfo(buf, ", %d)", o_enumoid->enumtypid);
 }
 

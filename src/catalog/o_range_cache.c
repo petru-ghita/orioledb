@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * o_range_cache.c
- *		Routines for orioledb range type cache.
+ *		Routines for orioledb range sys cache.
  *
  * range_cache is tree that contains cached range metadata from pg_type.
  *
@@ -17,7 +17,7 @@
 
 #include "orioledb.h"
 
-#include "catalog/o_type_cache.h"
+#include "catalog/o_sys_cache.h"
 #include "catalog/sys_trees.h"
 #include "recovery/recovery.h"
 
@@ -33,32 +33,32 @@
 #include "utils/memutils.h"
 #include "utils/syscache.h"
 
-static OTypeCache *range_cache = NULL;
+static OSysCache *range_cache = NULL;
 
 static void o_range_cache_free_entry(Pointer entry);
 static void o_range_cache_fill_entry(Pointer *entry_ptr, Oid datoid,
 									 Oid typoid, XLogRecPtr insert_lsn,
 									 Pointer arg);
 
-O_TYPE_CACHE_FUNCS(range_cache, ORangeType);
+O_SYS_CACHE_FUNCS(range_cache, ORange);
 
-static OTypeCacheFuncs range_cache_funcs =
+static OSysCacheFuncs range_cache_funcs =
 {
 	.free_entry = o_range_cache_free_entry,
 	.fill_entry = o_range_cache_fill_entry
 };
 
 /*
- * Initializes the range type cache memory.
+ * Initializes the range sys cache memory.
  */
-O_TYPE_CACHE_INIT_FUNC(range_cache)
+O_SYS_CACHE_INIT_FUNC(range_cache)
 {
-	range_cache = o_create_type_cache(SYS_TREES_RANGE_CACHE,
-									  false, true,
-									  TypeRelationId,
-									  fastcache,
-									  mcxt,
-									  &range_cache_funcs);
+	range_cache = o_create_sys_cache(SYS_TREES_RANGE_CACHE,
+									 false, true,
+									 TypeRelationId,
+									 fastcache,
+									 mcxt,
+									 &range_cache_funcs);
 }
 
 void
@@ -66,7 +66,7 @@ o_range_cache_fill_entry(Pointer *entry_ptr, Oid datoid, Oid typoid,
 						 XLogRecPtr insert_lsn, Pointer arg)
 {
 	TypeCacheEntry *typcache;
-	ORangeType *o_range_type = (ORangeType *) *entry_ptr;
+	ORange *o_range = (ORange *) *entry_ptr;
 
 	/*
 	 * find typecache entry
@@ -75,23 +75,24 @@ o_range_cache_fill_entry(Pointer *entry_ptr, Oid datoid, Oid typoid,
 	if (typcache->rngelemtype == NULL)
 		elog(ERROR, "type %u is not a range type", typoid);
 
-	if (o_range_type == NULL)
+	if (o_range == NULL)
 	{
-		o_range_type = palloc0(sizeof(ORangeType));
-		*entry_ptr = (Pointer) o_range_type;
+		o_range = palloc0(sizeof(ORange));
+		*entry_ptr = (Pointer) o_range;
 	}
 
 	custom_type_add_if_needed(datoid,
 							  typcache->rngelemtype->type_id,
 							  insert_lsn);
 
-	o_range_type->elem_typlen = typcache->rngelemtype->typlen;
-	o_range_type->elem_typbyval = typcache->rngelemtype->typbyval;
-	o_range_type->elem_typalign = typcache->rngelemtype->typalign;
-	o_range_type->rng_collation = typcache->rng_collation;
-	o_type_procedure_fill(typcache->rng_cmp_proc_finfo.fn_oid,
-						  &o_range_type->rng_cmp_proc);
-	o_range_type->rng_cmp_oid = typcache->rng_cmp_proc_finfo.fn_oid;
+	o_type_cache_add_if_needed(datoid, typcache->rngelemtype->type_id,
+							   insert_lsn, NULL);
+	o_range->elem_type = typcache->rngelemtype->type_id;
+	o_range->rng_collation = typcache->rng_collation;
+	o_proc_cache_validate_add(datoid, typcache->rng_cmp_proc_finfo.fn_oid,
+							  typcache->rng_collation, "comparison",
+							  "range field");
+	o_range->rng_cmp_oid = typcache->rng_cmp_proc_finfo.fn_oid;
 }
 
 void
@@ -109,38 +110,26 @@ o_range_cmp_hook(FunctionCallInfo fcinfo, Oid rngtypid,
 	if (typcache == NULL ||
 		typcache->type_id != rngtypid)
 	{
-		XLogRecPtr	cur_lsn = is_recovery_in_progress() ?
-		GetXLogReplayRecPtr(NULL) :
-		GetXLogWriteRecPtr();
-		Oid			datoid;
-		ORangeType *range_type;
-		MemoryContext prev_context = MemoryContextSwitchTo(mcxt);
+		XLogRecPtr		cur_lsn;
+		Oid				datoid;
+		ORange		   *o_range;
+		MemoryContext	prev_context = MemoryContextSwitchTo(mcxt);
 
-		if (OidIsValid(MyDatabaseId))
-		{
-			datoid = MyDatabaseId;
-		}
-		else
-		{
-			Assert(OidIsValid(o_type_cmp_datoid));
-			datoid = o_type_cmp_datoid;
-		}
-
-		range_type = o_range_cache_search(datoid, rngtypid, cur_lsn);
-		if (range_type)
+		o_sys_cache_set_datoid_lsn(&cur_lsn, &datoid);
+		o_range = o_range_cache_search(datoid, rngtypid, cur_lsn);
+		if (o_range)
 		{
 			typcache = palloc0(sizeof(TypeCacheEntry));
 			typcache->type_id = rngtypid;
 			typcache->rngelemtype = palloc0(sizeof(TypeCacheEntry));
-			typcache->rngelemtype->typlen = range_type->elem_typlen;
-			typcache->rngelemtype->typbyval = range_type->elem_typbyval;
-			typcache->rngelemtype->typalign = range_type->elem_typalign;
-			typcache->rng_collation = range_type->rng_collation;
+			o_type_cache_fill_info(o_range->elem_type,
+								   &typcache->rngelemtype->typlen,
+								   &typcache->rngelemtype->typbyval,
+								   &typcache->rngelemtype->typalign);
+			typcache->rng_collation = o_range->rng_collation;
 
-			o_type_procedure_fill_finfo(&typcache->rng_cmp_proc_finfo,
-										&range_type->rng_cmp_proc,
-										range_type->rng_cmp_oid,
-										2);
+			o_proc_cache_fill_finfo(&typcache->rng_cmp_proc_finfo,
+									o_range->rng_cmp_oid);
 
 			fcinfo->flinfo->fn_extra = (void *) typcache;
 			MemoryContextSwitchTo(prev_context);

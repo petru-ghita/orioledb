@@ -21,8 +21,11 @@
 #include "btree/iterator.h"
 #include "btree/modify.h"
 #include "catalog/o_opclass.h"
+#include "catalog/o_sys_cache.h"
 #include "checkpoint/checkpoint.h"
+#include "recovery/recovery.h"
 #include "recovery/wal.h"
+#include "utils/planner.h"
 #include "utils/stopevent.h"
 
 #include "access/nbtree.h"
@@ -40,7 +43,7 @@ static HTAB *opclass_cache;
 static inline OOpclass *o_opclass_cached_search(Oid datoid, Oid opclass, bool must_found);
 static OOpclass *o_opclass_get_from_tree(OOpclassKey *key);
 static bool o_opclass_insert(OOpclass *opclass);
-static void o_opclass_add_if_needed(Oid datoid, Oid opclassoid);
+static void o_opclass_add_if_needed(Oid datoid, Oid opclassoid, Oid colloid);
 
 
 /*
@@ -72,9 +75,11 @@ o_opclass_add_all(OTable *o_table)
 	 * Inserts opclasses for TOAST index.
 	 */
 	o_opclass_add_if_needed(o_table->oids.datoid,
-							GetDefaultOpClass(INT2OID, BTREE_AM_OID));
+							GetDefaultOpClass(INT2OID, BTREE_AM_OID),
+							InvalidOid);
 	o_opclass_add_if_needed(o_table->oids.datoid,
-							GetDefaultOpClass(INT4OID, BTREE_AM_OID));
+							GetDefaultOpClass(INT4OID, BTREE_AM_OID),
+							InvalidOid);
 
 	/*
 	 * Inserts opclass for default index if there is no unique index.
@@ -82,7 +87,8 @@ o_opclass_add_all(OTable *o_table)
 	if (o_table->nindices == 0 || o_table->indices[0].type == oIndexRegular)
 	{
 		o_opclass_add_if_needed(o_table->oids.datoid,
-								GetDefaultOpClass(TIDOID, BTREE_AM_OID));
+								GetDefaultOpClass(TIDOID, BTREE_AM_OID),
+								InvalidOid);
 	}
 
 	for (cur_ix = 0; cur_ix < o_table->nindices; cur_ix++)
@@ -93,7 +99,8 @@ o_opclass_add_all(OTable *o_table)
 		for (cur_field = 0; cur_field < index->nfields; cur_field++)
 		{
 			o_opclass_add_if_needed(o_table->oids.datoid,
-									index->fields[cur_field].opclass);
+									index->fields[cur_field].opclass,
+									index->fields[cur_field].collation);
 		}
 	}
 }
@@ -219,7 +226,7 @@ o_opclass_insert(OOpclass *opclass)
  * Adds an opclass to the opclass B-tree if it is not exist.
  */
 static void
-o_opclass_add_if_needed(Oid datoid, Oid opclassoid)
+o_opclass_add_if_needed(Oid datoid, Oid opclassoid, Oid colloid)
 {
 	Form_pg_opclass opclass;
 	HeapTuple	opclasstuple;
@@ -263,13 +270,10 @@ o_opclass_add_if_needed(Oid datoid, Oid opclassoid)
 							   BTSORTSUPPORT_PROC);
 	if (OidIsValid(cmpoid))
 	{
-		/* sort support is optional */
-		o_type_procedure_fill(cmpoid, &o_opclass->ssupProc);
-		o_opclass->hasSsup = true;
-	}
-	else
-	{
-		o_opclass->hasSsup = false;
+		XLogRecPtr	cur_lsn;
+		o_sys_cache_set_datoid_lsn(&cur_lsn, NULL);
+		o_proc_cache_add_if_needed(datoid, cmpoid, cur_lsn,
+								   (Pointer) &colloid);
 	}
 	o_opclass->ssupOid = cmpoid;
 
@@ -280,7 +284,8 @@ o_opclass_add_if_needed(Oid datoid, Oid opclassoid)
 		/* but compare function should exist */
 		elog(ERROR, "Can't find comparator for opclass %u", opclassoid);
 	}
-	o_type_procedure_fill(cmpoid, &o_opclass->cmpProc);
+
+	o_proc_cache_validate_add(datoid, cmpoid, colloid, "comparsion", "field");
 	o_opclass->cmpOid = cmpoid;
 
 	/*
