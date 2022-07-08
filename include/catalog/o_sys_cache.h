@@ -33,6 +33,10 @@
 #include "miscadmin.h"
 #include "recovery/recovery.h"
 
+#if PG_VERSION_NUM >= 150000
+#include "access/xlogrecovery.h"
+#endif
+
 /*
  * Database oid to be used for sys cache entries comparison.
  */

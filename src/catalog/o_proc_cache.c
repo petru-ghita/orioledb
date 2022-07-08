@@ -23,7 +23,9 @@
 #include "recovery/recovery.h"
 
 #include "access/htup_details.h"
+#if PG_VERSION_NUM >= 140000
 #include "access/toast_compression.h"
+#endif
 #if PG_VERSION_NUM >= 150000
 #include "access/xlogrecovery.h"
 #endif
@@ -35,6 +37,9 @@
 #include "funcapi.h"
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
+#if PG_VERSION_NUM < 140000
+#include "nodes/print.h"
+#endif
 #include "rewrite/rewriteHandler.h"
 #include "pgstat.h"
 #include "tcop/tcopprot.h"
@@ -84,7 +89,6 @@ typedef struct sql_func_data
 	Node		 ***qtlists;
 } sql_func_data;
 
-
 struct OProc
 {
 	OSysCacheKey	key;
@@ -98,6 +102,119 @@ struct OProc
 
 	MemoryContext	cxt;
 };
+
+#if PG_VERSION_NUM < 140000
+/*
+ * Data structure needed by the parser callback hooks to resolve parameter
+ * references during parsing of a SQL function's body.  This is separate from
+ * SQLFunctionCache since we sometimes do parsing separately from execution.
+ */
+typedef struct SQLFunctionParseInfo
+{
+	char	   *fname;			/* function's name */
+	int			nargs;			/* number of input arguments */
+	Oid		   *argtypes;		/* resolved types of input arguments */
+	char	  **argnames;		/* names of input arguments; NULL if none */
+	/* Note that argnames[i] can be NULL, if some args are unnamed */
+	Oid			collation;		/* function's input collation, if known */
+} SQLFunctionParseInfo;
+
+
+/*
+ * Perform rewriting of a query produced by parse analysis.
+ *
+ * Note: query must just have come from the parser, because we do not do
+ * AcquireRewriteLocks() on it.
+ */
+static List *
+pg_rewrite_query(Query *query)
+{
+	List	   *querytree_list;
+
+	if (Debug_print_parse)
+		elog_node_display(LOG, "parse tree", query,
+						  Debug_pretty_print);
+
+	if (log_parser_stats)
+		ResetUsage();
+
+	if (query->commandType == CMD_UTILITY)
+	{
+		/* don't rewrite utilities, just dump 'em into result list */
+		querytree_list = list_make1(query);
+	}
+	else
+	{
+		/* rewrite regular queries */
+		querytree_list = QueryRewrite(query);
+	}
+
+	if (log_parser_stats)
+		ShowUsage("REWRITER STATISTICS");
+
+#ifdef COPY_PARSE_PLAN_TREES
+	/* Optional debugging check: pass querytree through copyObject() */
+	{
+		List	   *new_list;
+
+		new_list = copyObject(querytree_list);
+		/* This checks both copyObject() and the equal() routines... */
+		if (!equal(new_list, querytree_list))
+			elog(WARNING, "copyObject() failed to produce equal parse tree");
+		else
+			querytree_list = new_list;
+	}
+#endif
+
+#ifdef WRITE_READ_PARSE_PLAN_TREES
+	/* Optional debugging check: pass querytree through outfuncs/readfuncs */
+	{
+		List	   *new_list = NIL;
+		ListCell   *lc;
+
+		/*
+		 * We currently lack outfuncs/readfuncs support for most utility
+		 * statement types, so only attempt to write/read non-utility queries.
+		 */
+		foreach(lc, querytree_list)
+		{
+			Query	   *query = castNode(Query, lfirst(lc));
+
+			if (query->commandType != CMD_UTILITY)
+			{
+				char	   *str = nodeToString(query);
+				Query	   *new_query = stringToNodeWithLocations(str);
+
+				/*
+				 * queryId is not saved in stored rules, but we must preserve
+				 * it here to avoid breaking pg_stat_statements.
+				 */
+				new_query->queryId = query->queryId;
+
+				new_list = lappend(new_list, new_query);
+				pfree(str);
+			}
+			else
+				new_list = lappend(new_list, query);
+		}
+
+		/* This checks both outfuncs/readfuncs and the equal() routines... */
+		if (!equal(new_list, querytree_list))
+			elog(WARNING, "outfuncs/readfuncs failed to produce equal parse tree");
+		else
+			querytree_list = new_list;
+	}
+#endif
+
+	if (Debug_print_rewritten)
+		elog_node_display(LOG, "rewritten parse tree", querytree_list,
+						  Debug_pretty_print);
+
+	return querytree_list;
+}
+#elif PG_VERSION_NUM >= 150000
+#define pg_analyze_and_rewrite_params pg_analyze_and_rewrite_withcb
+#endif
 
 /*
  * An SQLFunctionCache record is built during the first call,
@@ -634,7 +751,9 @@ jf_cleanTupType_init_entry(TupleDesc desc,
 	att->attbyval = o_att->typbyval;
 	att->attalign = o_att->typalign;
 	att->attstorage = o_att->typstorage;
+#if PG_VERSION_NUM >= 140000
 	att->attcompression = InvalidCompressionMethod;
+#endif
 	att->attcollation = o_att->typcollation;
 }
 
@@ -853,11 +972,13 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK,
 			elog(ERROR, "null prosrc for function %u", foid);
 		fcache->src = TextDatumGetCString(tmp);
 
+#if PG_VERSION_NUM >= 140000
 		/* If we have prosqlbody, pay attention to that not prosrc. */
 		tmp = SysCacheGetAttr(PROCOID,
 							  procedureTuple,
 							  Anum_pg_proc_prosqlbody,
 							  &isNull);
+#endif
 		/*
 		* Parse and rewrite the queries in the function text.  Use sublists to
 		* keep track of the original query boundaries.
@@ -901,10 +1022,10 @@ init_sql_fcache(FunctionCallInfo fcinfo, Oid collation, bool lazyEvalOK,
 				List	   *queryTree_sublist;
 
 				queryTree_sublist = pg_analyze_and_rewrite_params(parsetree,
-																fcache->src,
-																(ParserSetupHook) sql_fn_parser_setup,
-																fcache->pinfo,
-																NULL);
+																  fcache->src,
+																  (ParserSetupHook) sql_fn_parser_setup,
+																  fcache->pinfo,
+																  NULL);
 				queryTree_list = lappend(queryTree_list, queryTree_sublist);
 			}
 		}
@@ -1295,7 +1416,9 @@ postquel_getnext(execution_state *es, SQLFunctionCachePtr fcache)
 	{
 		ProcessUtility(es->qd->plannedstmt,
 					   fcache->src,
+#if PG_VERSION_NUM >= 140000
 					   false,
+#endif
 					   PROCESS_UTILITY_QUERY,
 					   es->qd->params,
 					   es->qd->queryEnv,
@@ -1470,7 +1593,6 @@ o_SearchCatCacheInternal_hook(CatCache *cache, int nkeys, Datum v1, Datum v2,
 							  Datum v3, Datum v4)
 {
 	HeapTuple result = NULL;
-	ereport(DEBUG4, errmsg("SYS CACHE %s", cache->cc_relname), errbacktrace());
 	if (cache->cc_reloid == TypeRelationId)
 	{
 		Oid			typeoid;
@@ -1480,7 +1602,6 @@ o_SearchCatCacheInternal_hook(CatCache *cache, int nkeys, Datum v1, Datum v2,
 		if (!cache->cc_tupdesc)
 		{
 			tupdesc = o_class_cache_search_tupdesc(TypeRelationId);
-			elog(WARNING, "tupdesc for (%u): %p", TypeRelationId, tupdesc);
 			cache->cc_tupdesc = tupdesc;
 		}
 		result = o_type_cache_search_htup(cache->cc_tupdesc, typeoid);
@@ -1669,7 +1790,8 @@ o_fmgr_sql(PG_FUNCTION_ARGS)
 				my_owner = ResourceOwnerCreate(NULL, "orioledb o_fmgr_sql");
 				CurrentResourceOwner = my_owner;
 			}
-			SearchCatCacheInternal_hook = o_SearchCatCacheInternal_hook;
+			// TODO: Uncomment when hook added to postgres-patches
+			// SearchCatCacheInternal_hook = o_SearchCatCacheInternal_hook;
 			o_func_hook_enabled = true;
 			PG_TRY();
 			{
@@ -1678,7 +1800,8 @@ o_fmgr_sql(PG_FUNCTION_ARGS)
 			PG_FINALLY();
 			{
 				o_func_hook_enabled = false;
-				SearchCatCacheInternal_hook = NULL;
+				// TODO: Uncomment when hook added to postgres-patches
+				// SearchCatCacheInternal_hook = NULL;
 				if (my_owner)
 				{
 					ResourceOwnerRelease(my_owner,

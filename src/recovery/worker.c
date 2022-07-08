@@ -188,7 +188,6 @@ recovery_worker_main(Datum main_arg)
 		RegisterTimeout(DEADLOCK_TIMEOUT, CheckDeadLockAlert);
 		/* enable relation cache invalidation (remove old table descriptors) */
 		RelationCacheInitialize();
-		elog(WARNING, "InitCatalogCache");
 		InitCatalogCache();
 		SharedInvalBackendInit(false);
 

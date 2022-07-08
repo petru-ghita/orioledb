@@ -77,7 +77,7 @@ AS $$
 	-- SELECT (VALUES (1), (3), (5)) s1 LIMIT 1;
 	-- SELECT int_val FROM o_test_custom_opclass LIMIT 1;
 	SELECT my_funcs.my_int_cmp_sql(a, b);
-	SELECT 1 + 3 - a - b;
+	-- SELECT 1 + 3 - a - b;
 	-- SELECT COUNT(*) % 2 FROM generate_series(LEAST(a, b), GREATEST(a, b));
 	-- SELECT s1 + a - b FROM (SELECT 1) s1;
 	-- SELECT * FROM ROWS FROM(my_funcs.my_test_func(a, b));

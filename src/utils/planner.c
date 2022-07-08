@@ -78,8 +78,6 @@ o_process_sql_function(HeapTuple procedureTuple, bool (*walker) (),
 	bool						has_body = true;
 
 	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
-	elog(WARNING, "o_process_sql_function: %s",
-		 procedureStruct->proname.data);
 
 	/*
 		* Make a temporary memory context, so that we don't leak all the
@@ -173,8 +171,6 @@ o_process_sql_function(HeapTuple procedureTuple, bool (*walker) (),
 			* more than one command in the function body.
 			*/
 		raw_parsetree_list = pg_parse_query(callback_arg.prosrc);
-		elog(WARNING, "raw_parsetree_list: %s", nodeToString(raw_parsetree_list));
-		elog(WARNING, "raw_parsetree_list list_length: %d", list_length(raw_parsetree_list));
 		has_body = list_length(raw_parsetree_list) == 1;
 		if (has_body)
 		{
@@ -190,30 +186,6 @@ o_process_sql_function(HeapTuple procedureTuple, bool (*walker) (),
 	}
 #endif
 
-	elog(WARNING, "o_process_sql_function: %s: BIG IF: %c %c %c %c %c "
-				  "%c %c %c %c %c %c %c %c %c %c %c %c %c %c %c %c",
-		 procedureStruct->proname.data,
-		 has_body ? 'Y' : 'N',
-		 IsA(querytree, Query) ? 'Y' : 'N',
-		 querytree->commandType == CMD_SELECT ? 'Y' : 'N',
-		 !querytree->hasAggs ? 'Y' : 'N',
-		 !querytree->hasWindowFuncs ? 'Y' : 'N',
-		 !querytree->hasTargetSRFs ? 'Y' : 'N',
-		 !querytree->hasSubLinks ? 'Y' : 'N',
-		 !querytree->cteList ? 'Y' : 'N',
-		 !querytree->rtable ? 'Y' : 'N',
-		 !querytree->jointree->fromlist ? 'Y' : 'N',
-		 !querytree->jointree->quals ? 'Y' : 'N',
-		 !querytree->groupClause ? 'Y' : 'N',
-		 !querytree->groupingSets ? 'Y' : 'N',
-		 !querytree->havingQual ? 'Y' : 'N',
-		 !querytree->windowClause ? 'Y' : 'N',
-		 !querytree->distinctClause ? 'Y' : 'N',
-		 !querytree->sortClause ? 'Y' : 'N',
-		 !querytree->limitOffset ? 'Y' : 'N',
-		 !querytree->limitCount ? 'Y' : 'N',
-		 !querytree->setOperations ? 'Y' : 'N',
-		 list_length(querytree->targetList) == 1 ? 'Y' : 'N');
 	/*
 		* The single command must be a simple "SELECT expression".
 		*
@@ -246,9 +218,6 @@ o_process_sql_function(HeapTuple procedureTuple, bool (*walker) (),
 	{
 		TupleDesc	rettupdesc;
 		List	   *querytree_list;
-
-		elog(WARNING, "o_process_sql_function: %s: INSIDE BIG IF",
-			procedureStruct->proname.data);
 
 		/* If the function result is composite, resolve it */
 		(void) get_expr_result_type((Node *)fexpr,
@@ -482,8 +451,6 @@ validate_function_walker(Oid functionId, Oid inputcollid, List *args,
 	if (!HeapTupleIsValid(procedureTuple))
 		elog(ERROR, "cache lookup failed for function %u", functionId);
 	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
-	elog(WARNING, "validate_function_walker: %s",
-		 procedureStruct->proname.data);
 
 	if (procedureStruct->prolang > SQLlanguageId)
 		ereport(ERROR,
@@ -546,9 +513,6 @@ o_validate_function_by_oid(Oid procoid, char *hint_msg)
 	if (!HeapTupleIsValid(procedureTuple))
 		elog(ERROR, "cache lookup failed for function %u", procoid);
 	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
-
-	elog(WARNING, "o_validate_function_by_oid: %s",
-		 procedureStruct->proname.data);
 
 	fexpr = makeNode(FuncExpr);
 	fexpr->funcid = procoid;
